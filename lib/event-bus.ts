@@ -7,6 +7,15 @@ let events: CaptureEvent[] = []
 let startedAt = Date.now()
 let paused = false
 let frameSeq = 0
+let sessionId: string = newId()
+
+function newId(): string {
+  return globalThis.crypto.randomUUID()
+}
+
+export function getSessionId(): string {
+  return sessionId
+}
 
 function notify() {
   for (const listener of listeners) listener()
@@ -32,6 +41,7 @@ export function startSession(): void {
   startedAt = Date.now()
   frameSeq = 0
   paused = false
+  sessionId = newId()
   notify()
 }
 
@@ -89,7 +99,7 @@ async function publish(event: CaptureEvent): Promise<void> {
     await fetch("/api/events", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(event),
+      body: JSON.stringify({ session_id: sessionId, event }),
       keepalive: true,
     })
   } catch {

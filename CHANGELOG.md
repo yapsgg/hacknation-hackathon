@@ -78,6 +78,33 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 ---
 
+## [0.0.4] — 2026-10-04
+
+### Done (Phase 1 leftovers: Supabase wiring + Vercel deploy)
+
+- **`supabase/migrations/0001_init.sql`** — tables `sessions`, `events`, `questions`, `gaps`, `work_maps`, `mastery`; RLS on; anon is read-only on `events`/`questions`/`gaps`; those three added to the `supabase_realtime` publication; private `frames` storage bucket; `purge_window()` function for off-the-record deletes (service role only). Idempotent.
+- **`lib/supabase/admin.ts`** (service role, server only) and **`lib/supabase/browser.ts`** (anon, read-only). Both return `null` when env is missing.
+- **`/api/events`** now persists to Supabase when configured, otherwise falls back to memory. Contract changed: `POST { session_id, event }` (uuid required); `GET ?session_id=`. Invalid session/event rejected with 422.
+- **Client session id** — `event-bus` generates a uuid per session and sends it with every event.
+- **`npm run seed`** (`scripts/seed.mjs`) — loads `fixtures/work-map.mock.json` into `work_maps` as the pre-baked seed (idempotent).
+- **Vercel** — project `agent` created under `abdibrokhims-projects`; first deploy is live at https://agent-nine-lake.vercel.app (verified `/deal-desk` and `/api/events` via `vercel curl`). Use `npx vercel@latest` (global CLI 33.4.1 is too old).
+- Verified: lint, typecheck, memory-fallback API (valid / bad session / bad event), and UI -> API payload.
+
+### Needs you (blocked on credentials)
+
+- [ ] Create the Supabase project, run `supabase/migrations/0001_init.sql` in the SQL Editor, fill `.env.local`, run `npm run seed`. The Supabase path is **untested** against a real project.
+- [ ] Add the same env vars in Vercel (Project Settings -> Environment Variables).
+- [ ] Decide on Vercel **Deployment Protection**: it is ON, so the URL needs a Vercel login. Turn it off (or add a bypass) before the demo/judging.
+- [ ] ElevenAgents API key + interviewer/tutor agent IDs; vision-model key.
+- [ ] Vercel serverless can't hold WebSockets and the memory fallback isn't shared across instances; production must use Supabase.
+
+### Known gaps
+
+- Off-the-record currently suppresses new events but does not call `purge_window()` or delete stored frames yet.
+- Browser Realtime subscription (`getSupabaseBrowser`) is not wired into the UI yet.
+
+---
+
 ## Next Steps (to finish the app)
 
 Ordered by the build priority in `ARCHITECTURE.md` §8. Each item lists concrete deliverables and a definition of done.
