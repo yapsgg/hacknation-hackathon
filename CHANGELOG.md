@@ -49,6 +49,35 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 ---
 
+## [0.0.3] — 2026-10-04
+
+### Done (Phase 1 — Sandbox "Deal Desk" app)
+
+- **`/deal-desk` page** — 3-pane layout: VDR viewer, LBO input sheet, Apprentice side panel. "synthetic data" label visible.
+- **Mock VDR** (`lib/vdr.ts`) — 8 seeded docs: EBITDA bridge, Acme MSA + Amendment 2 ("supersedes and replaces"), relocation invoices (3 years), capex history (4.1% vs 1.8%), Customer 3 Order Form + Add-On ("in addition to"), legal fee invoices (2 prior-year repeats).
+- **LBO input sheet** — ARR (Acme, Customer 3), add-backs (Relocation, Legal), capex ratio. Commit on blur/Enter emits `value_entered` (first entry) or `field_changed` (from → to).
+- **Save button** — emits `save_clicked`; routed through a pre-commit interceptor stub (always allows; Phase 4 swaps in the tutor's `block_commit`).
+- **Event bus** (`lib/event-bus.ts`, `hooks/use-events.ts`) — in-memory store via `useSyncExternalStore`; app events tagged `source: "app"`; each event also POSTed to the API.
+- **`/api/events` route handler** — validates and stores events in memory (POST/GET). Placeholder until Supabase.
+- **Screen capture hook** (`hooks/use-screen-capture.ts`) — `getDisplayMedia`, 1 fps sampling, grayscale frame-diff gate; vision call is not wired yet.
+- **Side panel** — share-screen control, off-the-record toggle (pauses event emission, clears frames, shows redaction banner), "frames not retained" switch, live event feed.
+- **Landing page** linking to the Deal Desk.
+- **Types** (`lib/types.ts`) mirroring `schemas/`.
+- **Lint/type fixes** — `use-mobile.ts` rewritten with `useSyncExternalStore`; targeted eslint-disable in `carousel.tsx`. `npm run lint`, `typecheck`, and `build` all pass.
+- **Verified in browser:** doc open, value entered, field changed, save, off-record, and API receipt of events.
+
+### Known gaps / not done yet
+
+- No ElevenAgents widget slot yet (side panel has no voice).
+- No question log panel.
+- `doc_scrolled` events are not emitted.
+- Capture frames are sampled but not sent anywhere (no vision model).
+- Events are in memory only (no Supabase); lost on server restart.
+- Not yet deployed to Vercel.
+- Event feed `salient_text` badges truncate long lines; minor styling.
+
+---
+
 ## Next Steps (to finish the app)
 
 Ordered by the build priority in `ARCHITECTURE.md` §8. Each item lists concrete deliverables and a definition of done.
