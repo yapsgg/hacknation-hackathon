@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { EventFeed } from "@/components/deal-desk/event-feed"
+import { TutorPanel } from "@/components/deal-desk/tutor-panel"
 import { useDealDesk } from "@/components/deal-desk/session-provider"
 import { cn } from "cn"
 
@@ -23,6 +24,7 @@ export function SidePanel() {
     setFramesNotStored,
     frames,
     capture,
+    purgeStatus,
   } = useDealDesk()
 
   const capturing = capture.status === "active"
@@ -102,10 +104,14 @@ export function SidePanel() {
 
       {offRecord ? (
         <div className="border-b border-border bg-destructive/10 px-3 py-2 text-[11px] text-destructive">
-          Capture paused. This segment is purged and will appear as a redacted
-          block in the Work Map.
+          Capture paused. {purgeStatus === "purging" ? "Purging this segment…" : null}
+          {purgeStatus === "purged" ? "This segment was purged." : null}
+          {purgeStatus === "error" ? "Purge needs a retry before publishing." : null}
+          {purgeStatus === "idle" ? "This segment is redacted from the session." : null}
         </div>
       ) : null}
+
+      <TutorPanel />
 
       <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
         <span className="text-[11px] font-medium text-muted-foreground">

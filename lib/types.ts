@@ -59,6 +59,8 @@ export interface WorkMapStep {
 export type GapRisk = "high" | "medium" | "low"
 export type GapStatus = "open" | "closed" | "waived"
 
+export type MasteryState = "unseen" | "hit" | "missed"
+
 export interface WorkMapGap {
   id: string
   step_id?: number | null
