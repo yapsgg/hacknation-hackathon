@@ -42,6 +42,9 @@ The generator reconciles old unchecked checklist items against later Done sectio
 - [x] **Review before publish** — Tutor access can be revoked until the expert-reviewed Work Map is approved. _(source: [0.0.5] — 2026-10-04 / Done (Phase 4/5 demo slice — feature branch))_
 - [x] **Off-the-record purge** — the browser clears local events and frames, while `/api/privacy/purge` removes memory events or Supabase events and session-prefixed stored frames. _(source: [0.0.5] — 2026-10-04 / Done (Phase 4/5 demo slice — feature branch))_
 - [x] **Transcript privacy boundary** — `/api/privacy/redact` provides a conservative local fallback and reports its provider explicitly; a hosted Presidio Analyzer can be added later. _(source: [0.0.5] — 2026-10-04 / Done (Phase 4/5 demo slice — feature branch))_
+- [x] Connect the Tutor panel to the real ElevenAgents tutor session and client tools. _(source: [0.0.5] — 2026-10-04 / Still open for Phase 4/5)_
+- [x] Persist mastery, Work Map approval, and review audit events to Supabase. _(source: [0.0.5] — 2026-10-04 / Still open for Phase 4/5)_
+- [x] Persist approved frame clips only when the retention toggle permits it. _(source: [0.0.5] — 2026-10-04 / Still open for Phase 4/5)_
 - [x] **`TODO.md` generator** — `npm run todo` reconciles historical Done sections with legacy unchecked lists and produces one current work queue. _(source: [0.0.6] — 2026-10-04 / Done (orchestration foundation — feature branch))_
 - [x] **Model-routing plan** — `scripts/orchestrate.mjs` assigns planner, implementer, fast-worker, and reviewer roles without executing model calls or file changes. _(source: [0.0.6] — 2026-10-04 / Done (orchestration foundation — feature branch))_
 - [x] **Approval-first policy** — `orchestrator/roles.json` records model tiers, ownership boundaries, and gates for secrets, migrations, external writes, PRs, merges, and deployments. _(source: [0.0.6] — 2026-10-04 / Done (orchestration foundation — feature branch))_
@@ -50,6 +53,17 @@ The generator reconciles old unchecked checklist items against later Done sectio
 - [x] **Env** — `.env.local` (git-ignored) holds the Supabase URL/keys and the ElevenLabs key + agent ids. Supabase URL/anon key, service-role key, ElevenLabs key and both agent ids were added to Vercel (Production; Supabase vars also in Development). Preview environment was not set. _(source: [0.0.7] — 2026-10-04 / Done (Supabase live + ElevenAgents provisioned))_
 - [x] **Production redeployed** to https://agent-nine-lake.vercel.app with the Supabase env. _(source: [0.0.7] — 2026-10-04 / Done (Supabase live + ElevenAgents provisioned))_
 - [x] **`scripts/provision-agents.mjs`** + **`npm run provision:agents`** — creates/updates the ElevenAgents client tools and both agents via the API. Idempotent: tools matched by name, agents patched when an id is already in `.env.local`. _(source: [0.0.7] — 2026-10-04 / Done (Supabase live + ElevenAgents provisioned))_
+- [x] **Live Tutor bridge** — official `@elevenlabs/react` SDK, microphone controls, signed-session endpoint, dynamic session/case/mastery variables, and a clear missing-configuration state. _(source: [0.0.8] — 2026-10-04 / Done (Phase 4 — Teach / Tutor implementation complete))_
+- [x] **Tutor client tools** — `get_screen_state`, `block_commit`, `replay_moment`, `update_mastery`, `lookup_guardrail`, `get_expert_moment`, and voice-controlled `set_off_record` are registered against live Deal Desk state. _(source: [0.0.8] — 2026-10-04 / Done (Phase 4 — Teach / Tutor implementation complete))_
+- [x] **Work Map grounding** — guardrail and expert-moment lookups expose only the approved seeded Work Map; revoking expert approval ends the voice session and blocks Save. _(source: [0.0.8] — 2026-10-04 / Done (Phase 4 — Teach / Tutor implementation complete))_
+- [x] **Persistent tutor state** — mastery and approval are stored through `/api/tutor/state`, with Supabase persistence and a memory fallback. _(source: [0.0.8] — 2026-10-04 / Done (Phase 4 — Teach / Tutor implementation complete))_
+- [x] **Agent provisioning updated** — the Tutor prompt/tool set now includes Work Map lookup and off-record control. _(source: [0.0.8] — 2026-10-04 / Done (Phase 4 — Teach / Tutor implementation complete))_
+- [x] **Acceptance tests** — correct Acme/Customer 3 values pass; the over-learned replacement mistake and recurring legal fee are blocked with expert evidence. _(source: [0.0.8] — 2026-10-04 / Done (Phase 4 — Teach / Tutor implementation complete))_
+- [x] **Transcript privacy boundary** — live Tutor messages are sent to `/api/privacy/transcripts`, redacted before storage, and rejected if a configured Presidio service fails. _(source: [0.0.9] — 2026-10-04 / Done (Phase 5 — Trust & Privacy implementation complete))_
+- [x] **Retention enforcement** — changed frames upload only when retention is enabled, the Work Map is approved, and the session is on-record. _(source: [0.0.9] — 2026-10-04 / Done (Phase 5 — Trust & Privacy implementation complete))_
+- [x] **Window-accurate purge** — off-record removes events, redacted transcripts, and only frame objects whose timestamps fall in the requested window. _(source: [0.0.9] — 2026-10-04 / Done (Phase 5 — Trust & Privacy implementation complete))_
+- [x] **Privacy evidence** — purge windows are persisted, audit actions are recorded, and the UI shows greyed/struck off-record timeline segments with removal counts. _(source: [0.0.9] — 2026-10-04 / Done (Phase 5 — Trust & Privacy implementation complete))_
+- [x] **Automated privacy tests** — local PII redaction, transcript storage, retained-frame storage, and off-record deletion pass through the memory fallback. _(source: [0.0.9] — 2026-10-04 / Done (Phase 5 — Trust & Privacy implementation complete))_
 - [x] **Define shared schemas** — create `/schemas/` with `event.schema.json` and `work-map.schema.json` exactly as specified in `ARCHITECTURE.md` §2–3. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
 - [x] **Client tool contract** — agree on names and signatures: `get_screen_state`, `log_question`, `mark_gap`, `start_debrief`, `submit_teachback_result`, `block_commit`, `replay_moment`, `update_mastery`, `lookup_guardrail`, `get_expert_moment`. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
 - [x] **Mock event stream** — `fixtures/events.mock.json` so each engineer can develop independently. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
@@ -60,11 +74,13 @@ The generator reconciles old unchecked checklist items against later Done sectio
 - [x] **Side panel layout** — ElevenAgents widget slot, live event feed, question log, off-the-record button. _(source: Next Steps (to finish the app) / Phase 1 — Sandbox "Deal Desk" app (0:30–2:30))_
 - [x] **Screen capture** — `getDisplayMedia` → canvas → 1 fps sampling with a frame-diff gate. _(source: Next Steps (to finish the app) / Phase 1 — Sandbox "Deal Desk" app (0:30–2:30))_
 - [x] **Hello-world deploy to Vercel** — prove the deploy path in hour 1. _(source: Next Steps (to finish the app) / Phase 1 — Sandbox "Deal Desk" app (0:30–2:30))_
+- [x] **Tutor agent** — second ElevenAgents agent; Work Map JSON in knowledge base; `lookup_guardrail` client tool reading the guardrail list. _(source: Next Steps (to finish the app) / Phase 4 — Teach / Tutor (3:30–4:30))_
 - [x] **`block_commit(reason, step_id)`** — pre-commit interceptor freezes Save and shows an overlay. _(source: Next Steps (to finish the app) / Phase 4 — Teach / Tutor (3:30–4:30))_
 - [x] **`replay_moment(step_id)`** — replay the expert's clip (fallback: static screenshot). _(source: Next Steps (to finish the app) / Phase 4 — Teach / Tutor (3:30–4:30))_
 - [x] **Mastery checklist** — unseen / hit / missed per rule; end-screen mastery view. _(source: Next Steps (to finish the app) / Phase 4 — Teach / Tutor (3:30–4:30))_
 - [x] **Teach cases seeded** — Customer 3 ("in addition to") and the $600k "one-time" legal fee with prior-year repeats. _(source: Next Steps (to finish the app) / Phase 4 — Teach / Tutor (3:30–4:30))_
 - [x] **Off-the-record** — button/voice trigger pauses capture, purges the buffer (deletes rows + stored frames), greys the segment in the Work Map. _(source: Next Steps (to finish the app) / Phase 5 — Trust & Privacy (4:30–5:15))_
+- [x] **Presidio on transcripts** — redact PII before storage. _(source: Next Steps (to finish the app) / Phase 5 — Trust & Privacy (4:30–5:15))_
 - [x] **"Frames not stored" toggle** — explicit retention control for confidential deal data. _(source: Next Steps (to finish the app) / Phase 5 — Trust & Privacy (4:30–5:15))_
 - [x] **Review before publish** — expert approves the Work Map before the tutor can use it. _(source: Next Steps (to finish the app) / Phase 5 — Trust & Privacy (4:30–5:15))_
 
@@ -72,11 +88,9 @@ The generator reconciles old unchecked checklist items against later Done sectio
 
 - [ ] Lock the exact demo script (dialog-level). _(source: [0.0.2] — 2026-10-04 / Still open in Phase 0)_
 - [ ] Validate fixtures against the schemas in CI (needs an ajv 8 dev dependency or a script). _(source: [0.0.2] — 2026-10-04 / Still open in Phase 0)_
-- [ ] Connect the Tutor panel to the real ElevenAgents tutor session and client tools. _(source: [0.0.5] — 2026-10-04 / Still open for Phase 4/5)_
-- [ ] Persist mastery, Work Map approval, and review audit events to Supabase. _(source: [0.0.5] — 2026-10-04 / Still open for Phase 4/5)_
-- [ ] Persist approved frame clips only when the retention toggle permits it. _(source: [0.0.5] — 2026-10-04 / Still open for Phase 4/5)_
 - [ ] Persist task runs, worker artifacts, test evidence, and reviewer decisions. _(source: [0.0.6] — 2026-10-04 / Still open for orchestration)_
 - [ ] Add CI validation that rejects a task when its claimed files overlap another active task. _(source: [0.0.6] — 2026-10-04 / Still open for orchestration)_
+- [ ] Test microphone/screen-share permissions and the voice phrase “off the record” in Chrome on the demo laptop. _(source: [0.0.9] — 2026-10-04 / Deployment action required for Phase 5)_
 - [ ] **ElevenAgents interviewer** — create agent, set voice + Expressive Mode, write the interviewer system prompt (`ARCHITECTURE.md` §6), get a bare-page voice conversation working. _(source: Next Steps (to finish the app) / Phase 2 — Capture intelligence (0:30–2:30, Engineer A))_
 - [ ] **Vision loop** — send previous-state summary + new frame to the vision model with structured output matching the event schema; extract `salient_text`. _(source: Next Steps (to finish the app) / Phase 2 — Capture intelligence (0:30–2:30, Engineer A))_
 - [ ] **Context pusher** — push a compact rolling summary to the agent as non-interrupting contextual updates. _(source: Next Steps (to finish the app) / Phase 2 — Capture intelligence (0:30–2:30, Engineer A))_
@@ -87,8 +101,6 @@ The generator reconciles old unchecked checklist items against later Done sectio
 - [ ] **Work Map builder** — LLM merges events + transcript + answers into the Work Map JSON; each step carries `t`, `quote`, `judgment_call`, `status`. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
 - [ ] **Debrief controller** — gap analysis, ≥3 risk-prioritized follow-ups, teach-back, correction diff, done criteria. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
 - [ ] **Work Map UI** (Engineer B) — clickable timeline, per-step screen moment, reason quote, guardrails; teach-back checklist the expert ticks. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
-- [ ] **Tutor agent** — second ElevenAgents agent; Work Map JSON in knowledge base; `lookup_guardrail` client tool reading the guardrail list. _(source: Next Steps (to finish the app) / Phase 4 — Teach / Tutor (3:30–4:30))_
-- [ ] **Presidio on transcripts** — redact PII before storage. _(source: Next Steps (to finish the app) / Phase 5 — Trust & Privacy (4:30–5:15))_
 - [ ] **Pre-bake the Work Map** — run one full session, save JSON, add a "load saved map" button so Teach never depends on a live build. _(source: Next Steps (to finish the app) / Phase 6 — Polish, Export & Rehearsal (4:30–6:00))_
 - [ ] **Recorded fallback session** — for wifi/mic failure at demo time. _(source: Next Steps (to finish the app) / Phase 6 — Polish, Export & Rehearsal (4:30–6:00))_
 - [ ] **Pitch deck** — 5 slides incl. moonshot + the five Apprentice Test answers on one slide. _(source: Next Steps (to finish the app) / Phase 6 — Polish, Export & Rehearsal (4:30–6:00))_
@@ -108,6 +120,10 @@ The generator reconciles old unchecked checklist items against later Done sectio
 - [ ] Add an executable Agents SDK adapter after the team approves credentials, tools, branch/worktree policy, and human approval flow. _(source: [0.0.6] — 2026-10-04 / Still open for orchestration)_
 - [ ] Vision model choice + key (recommendation: Gemini Flash). _(source: [0.0.7] — 2026-10-04 / Needs you)_
 - [ ] **Rotate** the Supabase service-role key and the ElevenLabs key after the hackathon (both were shared in chat). _(source: [0.0.7] — 2026-10-04 / Needs you)_
+- [ ] Run `supabase/migrations/0002_phase_4_5.sql` on the live project. _(source: [0.0.8] — 2026-10-04 / Deployment action required for Phase 4)_
+- [ ] Add the required Preview environment variables and run `npm run provision:agents` with the ElevenLabs key so the remote Tutor receives the three new tools. _(source: [0.0.8] — 2026-10-04 / Deployment action required for Phase 4)_
+- [ ] Exercise one real microphone conversation on the deployed preview; local automated tests cannot authenticate without the team credentials. _(source: [0.0.8] — 2026-10-04 / Deployment action required for Phase 4)_
+- [ ] Verify the new migration, storage bucket access, and off-record deletion against live Supabase. _(source: [0.0.9] — 2026-10-04 / Deployment action required for Phase 5)_
 
 ## Recommended execution order
 

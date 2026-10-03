@@ -7,6 +7,7 @@ import {
   emitAppEvent,
   elapsedSeconds,
   getSessionId,
+  getSnapshot,
   purgeEvents,
   setPaused,
   startSession,
@@ -15,11 +16,26 @@ import {
   evaluateCommit,
   getExpertMoment,
   INITIAL_MASTERY,
+  TUTOR_RULES,
   type CommitEvaluation,
   type ExpertMoment,
 } from "@/lib/tutor"
-import type { MasteryState } from "@/lib/types"
+import type { CaptureEvent, MasteryState } from "@/lib/types"
 import { getVdrDoc } from "@/lib/vdr"
+
+export interface PrivacyWindow {
+  from: number
+  to: number
+  eventsRemoved: number
+  framesRemoved: number
+}
+
+export interface ScreenState {
+  state_summary: string
+  recent_events: CaptureEvent[]
+  current_doc: string | null
+  elapsed_s: number
+}
 
 interface DealDeskContextValue {
   offRecord: boolean
@@ -31,7 +47,9 @@ interface DealDeskContextValue {
   frames: CapturedFrame[]
   capture: ReturnType<typeof useScreenCapture>
   mastery: Record<string, MasteryState>
+  updateMastery: (ruleId: string, state: MasteryState) => void
   activeBlock: { reason: string; stepId: number; ruleId: string | null } | null
+  blockCommit: (reason: string, stepId: number, ruleId?: string | null) => void
   activeReplay: ExpertMoment | null
   replayMoment: (stepId: number | null, ruleId?: string | null) => void
   dismissBlock: () => void
@@ -39,13 +57,25 @@ interface DealDeskContextValue {
   workMapApproved: boolean
   setWorkMapApproved: (value: boolean) => void
   purgeStatus: "idle" | "purging" | "purged" | "error"
+  privacyWindows: PrivacyWindow[]
+  getScreenState: () => ScreenState
+  syncStatus: "loading" | "ready" | "error"
 }
 
 const DealDeskContext = React.createContext<DealDeskContextValue | null>(null)
 
+async function patchTutorState(body: Record<string, unknown>) {
+  const response = await fetch("/api/tutor/state", {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ session_id: getSessionId(), ...body }),
+  })
+  if (!response.ok) throw new Error("Tutor state persistence failed")
+}
+
 export function DealDeskProvider({ children }: { children: React.ReactNode }) {
   const [offRecord, setOffRecordState] = React.useState(false)
-  const [framesNotStored, setFramesNotStored] = React.useState(true)
+  const [framesNotStored, setFramesNotStoredState] = React.useState(true)
   const [currentDocId, setCurrentDocId] = React.useState<string | null>(null)
   const [frames, setFrames] = React.useState<CapturedFrame[]>([])
   const [mastery, setMastery] = React.useState<Record<string, MasteryState>>(
@@ -57,49 +87,139 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
     ruleId: string | null
   } | null>(null)
   const [activeReplay, setActiveReplay] = React.useState<ExpertMoment | null>(null)
-  const [workMapApproved, setWorkMapApproved] = React.useState(true)
+  const [workMapApproved, setWorkMapApprovedState] = React.useState(true)
   const [purgeStatus, setPurgeStatus] = React.useState<
     "idle" | "purging" | "purged" | "error"
   >("idle")
+  const [privacyWindows, setPrivacyWindows] = React.useState<PrivacyWindow[]>([])
+  const [syncStatus, setSyncStatus] = React.useState<"loading" | "ready" | "error">(
+    "loading"
+  )
+
   const offRecordFromRef = React.useRef<number | null>(null)
+  const offRecordRef = React.useRef(false)
+  const framesNotStoredRef = React.useRef(true)
+  const workMapApprovedRef = React.useRef(true)
 
   React.useEffect(() => {
     startSession()
+    const sessionId = getSessionId()
+    void fetch(`/api/tutor/state?session_id=${encodeURIComponent(sessionId)}`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Tutor state load failed")
+        return response.json() as Promise<{
+          approved?: boolean
+          mastery?: Record<string, MasteryState>
+        }>
+      })
+      .then((state) => {
+        if (typeof state.approved === "boolean") {
+          workMapApprovedRef.current = state.approved
+          setWorkMapApprovedState(state.approved)
+        }
+        if (state.mastery) setMastery({ ...INITIAL_MASTERY, ...state.mastery })
+        setSyncStatus("ready")
+      })
+      .catch(() => setSyncStatus("error"))
+  }, [])
+
+  const updateMastery = React.useCallback((ruleId: string, state: MasteryState) => {
+    if (!TUTOR_RULES.some((rule) => rule.id === ruleId)) return
+    setMastery((current) => ({ ...current, [ruleId]: state }))
+    void patchTutorState({ action: "mastery", rule_id: ruleId, state }).catch(() =>
+      setSyncStatus("error")
+    )
   }, [])
 
   const handleFrame = React.useCallback((frame: CapturedFrame) => {
-    if (framesNotStored) return
-    setFrames((prev) => [frame, ...prev].slice(0, 12))
-  }, [framesNotStored])
+    if (
+      framesNotStoredRef.current ||
+      offRecordRef.current ||
+      !workMapApprovedRef.current
+    ) {
+      return
+    }
+    const normalized = { ...frame, t: Number(elapsedSeconds().toFixed(2)) }
+    setFrames((prev) => [normalized, ...prev].slice(0, 12))
+    if (!normalized.dataUrl) return
+    void fetch("/api/privacy/frames", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        session_id: getSessionId(),
+        frame_id: normalized.id,
+        t: normalized.t,
+        data_url: normalized.dataUrl,
+      }),
+    }).catch(() => setSyncStatus("error"))
+  }, [])
 
   const capture = useScreenCapture({ fps: 1, onFrame: handleFrame })
 
-  const setOffRecord = React.useCallback((value: boolean) => {
-    const now = elapsedSeconds()
-    if (value) {
-      const from = offRecordFromRef.current ?? 0
-      offRecordFromRef.current = now
-      setOffRecordState(true)
+  const purgeWindow = React.useCallback(async (from: number, to: number) => {
+    purgeEvents(from, to)
+    const response = await fetch("/api/privacy/purge", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ session_id: getSessionId(), from, to }),
+    })
+    if (!response.ok) throw new Error("Privacy purge failed")
+    const result = (await response.json()) as {
+      events_removed?: number
+      frames_removed?: number
+    }
+    setPrivacyWindows((current) => [
+      ...current,
+      {
+        from,
+        to,
+        eventsRemoved: Number(result.events_removed ?? 0),
+        framesRemoved: Number(result.frames_removed ?? 0),
+      },
+    ])
+  }, [])
+
+  const setOffRecord = React.useCallback(
+    (value: boolean) => {
+      const now = Number(elapsedSeconds().toFixed(2))
+      setPurgeStatus("purging")
       setPaused(true)
       setFrames([])
-      purgeEvents(from, now)
-      setPurgeStatus("purging")
-      void fetch("/api/privacy/purge", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ session_id: getSessionId(), from, to: now }),
-      })
-        .then((response) => {
-          if (!response.ok) throw new Error("Privacy purge failed")
-          setPurgeStatus("purged")
+
+      if (value) {
+        offRecordFromRef.current = now
+        offRecordRef.current = true
+        setOffRecordState(true)
+        const bufferFrom = Math.max(0, now - 15)
+        void purgeWindow(bufferFrom, now)
+          .then(() => setPurgeStatus("purged"))
+          .catch(() => setPurgeStatus("error"))
+        return
+      }
+
+      const from = offRecordFromRef.current ?? now
+      offRecordFromRef.current = null
+      void purgeWindow(from, now)
+        .then(() => {
+          offRecordRef.current = false
+          setOffRecordState(false)
+          setPaused(false)
+          setPurgeStatus("idle")
         })
         .catch(() => setPurgeStatus("error"))
-      return
-    }
-    offRecordFromRef.current = null
-    setOffRecordState(false)
-    setPaused(false)
-    setPurgeStatus("idle")
+    },
+    [purgeWindow]
+  )
+
+  const setFramesNotStored = React.useCallback((value: boolean) => {
+    framesNotStoredRef.current = value
+    setFramesNotStoredState(value)
+    if (value) setFrames([])
+    void fetch("/api/privacy/retention", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ session_id: getSessionId(), retained: !value }),
+    }).catch(() => setSyncStatus("error"))
   }, [])
 
   const replayMoment = React.useCallback(
@@ -109,13 +229,28 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
     []
   )
 
-  const dismissBlock = React.useCallback(() => {
-    setActiveBlock(null)
+  const blockCommit = React.useCallback(
+    (reason: string, stepId: number, ruleId: string | null = null) => {
+      setActiveBlock({ reason, stepId, ruleId })
+      if (ruleId) updateMastery(ruleId, "missed")
+    },
+    [updateMastery]
+  )
+
+  const dismissBlock = React.useCallback(() => setActiveBlock(null), [])
+
+  const setWorkMapApproved = React.useCallback((value: boolean) => {
+    workMapApprovedRef.current = value
+    setWorkMapApprovedState(value)
+    if (!value) setActiveBlock(null)
+    void patchTutorState({ action: "approval", approved: value }).catch(() =>
+      setSyncStatus("error")
+    )
   }, [])
 
   const interceptCommit = React.useCallback(
     (values: Record<string, string>): CommitEvaluation => {
-      if (!workMapApproved) {
+      if (!workMapApprovedRef.current) {
         const blocked = {
           blocked: true,
           reason: "The expert has not approved this Work Map for tutor use.",
@@ -123,31 +258,28 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
           ruleId: "review-before-publish",
           passedRuleIds: [],
         }
-        setActiveBlock({ reason: blocked.reason, stepId: blocked.stepId, ruleId: blocked.ruleId })
+        setActiveBlock({
+          reason: blocked.reason,
+          stepId: blocked.stepId,
+          ruleId: blocked.ruleId,
+        })
         return blocked
       }
 
       const result = evaluateCommit(values)
       if (result.blocked && result.stepId !== null) {
-        setActiveBlock({
-          reason: result.reason ?? "Commit blocked.",
-          stepId: result.stepId,
-          ruleId: result.ruleId,
-        })
-        if (result.ruleId) {
-          setMastery((current) => ({ ...current, [result.ruleId!]: "missed" }))
-        }
+        blockCommit(
+          result.reason ?? "Commit blocked.",
+          result.stepId,
+          result.ruleId
+        )
       } else {
         setActiveBlock(null)
-        setMastery((current) => {
-          const next = { ...current }
-          for (const ruleId of result.passedRuleIds) next[ruleId] = "hit"
-          return next
-        })
+        for (const ruleId of result.passedRuleIds) updateMastery(ruleId, "hit")
       }
       return result
     },
-    [workMapApproved]
+    [blockCommit, updateMastery]
   )
 
   const openDoc = React.useCallback((id: string) => {
@@ -161,6 +293,19 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
+  const getScreenState = React.useCallback((): ScreenState => {
+    const doc = currentDocId ? getVdrDoc(currentDocId) : null
+    const recent = getSnapshot().slice(-8)
+    return {
+      state_summary: doc
+        ? `Viewing ${doc.title}; ${recent.length} recent app events.`
+        : `No document open; ${recent.length} recent app events.`,
+      recent_events: recent,
+      current_doc: doc?.title ?? null,
+      elapsed_s: Number(elapsedSeconds().toFixed(1)),
+    }
+  }, [currentDocId])
+
   const value = React.useMemo<DealDeskContextValue>(
     () => ({
       offRecord,
@@ -172,7 +317,9 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
       frames,
       capture,
       mastery,
+      updateMastery,
       activeBlock,
+      blockCommit,
       activeReplay,
       replayMoment,
       dismissBlock,
@@ -180,37 +327,41 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
       workMapApproved,
       setWorkMapApproved,
       purgeStatus,
+      privacyWindows,
+      getScreenState,
+      syncStatus,
     }),
     [
       offRecord,
       setOffRecord,
       framesNotStored,
+      setFramesNotStored,
       currentDocId,
       openDoc,
       frames,
       capture,
       mastery,
+      updateMastery,
       activeBlock,
+      blockCommit,
       activeReplay,
       replayMoment,
       dismissBlock,
       interceptCommit,
       workMapApproved,
+      setWorkMapApproved,
       purgeStatus,
+      privacyWindows,
+      getScreenState,
+      syncStatus,
     ]
   )
 
-  return (
-    <DealDeskContext.Provider value={value}>
-      {children}
-    </DealDeskContext.Provider>
-  )
+  return <DealDeskContext.Provider value={value}>{children}</DealDeskContext.Provider>
 }
 
 export function useDealDesk(): DealDeskContextValue {
   const context = React.useContext(DealDeskContext)
-  if (!context) {
-    throw new Error("useDealDesk must be used within a DealDeskProvider")
-  }
+  if (!context) throw new Error("useDealDesk must be used within a DealDeskProvider")
   return context
 }

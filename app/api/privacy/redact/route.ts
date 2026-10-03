@@ -17,5 +17,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "text must be a string under 100KB" }, { status: 422 })
   }
 
-  return NextResponse.json(redactTranscript(text))
+  try {
+    return NextResponse.json(await redactTranscript(text))
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Redaction failed",
+        storage_blocked: true,
+      },
+      { status: 502 }
+    )
+  }
 }

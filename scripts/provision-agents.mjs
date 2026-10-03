@@ -108,6 +108,24 @@ const TOOLS = {
       ["rule_id", "state"]
     ),
   },
+  lookup_guardrail: {
+    description:
+      "Read the approved Work Map guardrails for a topic before judging the hire's action.",
+    parameters: obj({ topic: str("Document, field, or judgment topic to look up.") }, ["topic"]),
+  },
+  get_expert_moment: {
+    description:
+      "Fetch the expert's decision, reason quote, timestamp, frame, and clip for a Work Map step.",
+    parameters: obj({ step_id: num("The Work Map step to retrieve.") }, ["step_id"]),
+  },
+  set_off_record: {
+    description:
+      "Pause or resume capture and purge the confidential buffer when the user asks to go off the record.",
+    parameters: obj(
+      { active: { type: "boolean", description: "True to go off record; false to resume." } },
+      ["active"]
+    ),
+  },
 }
 
 async function ensureTools() {
@@ -183,6 +201,8 @@ const TUTOR_PROMPT = `You are the Tutor in AI Apprentice. You coach a junior pri
 
 ## Important
 - Rules are conditional. If a document actually says "in addition to", the correct move is to ADD. Do not block a correct action because it resembles a past mistake. Check the wording on screen first.
+- Before judging a new topic, call lookup_guardrail. Use get_expert_moment before explaining or replaying the expert's reasoning.
+- If the user says "off the record", call set_off_record with active true immediately. When they clearly resume, call it with active false.
 - Be warm and brief. One idea per turn. No lecturing, no praise inflation.
 - If you do not have a rule for what the hire is doing, say so and recommend escalating to QoE rather than guessing.`
 
@@ -255,7 +275,15 @@ const tutorId = await upsertAgent(
   agentBody(
     "AI Apprentice - Tutor",
     TUTOR_PROMPT,
-    ["get_screen_state", "block_commit", "replay_moment", "update_mastery"],
+    [
+      "get_screen_state",
+      "block_commit",
+      "replay_moment",
+      "update_mastery",
+      "lookup_guardrail",
+      "get_expert_moment",
+      "set_off_record",
+    ],
     ids,
     VOICE_TUTOR,
     "Hi. Before you touch any inputs, tell me: what will you check first?",
