@@ -12,6 +12,7 @@ import {
 } from "../app/api/tutor/state/route"
 import { redactLocally, redactTranscript } from "../lib/privacy"
 import { evaluateCommit, getExpertMoment, lookupGuardrails } from "../lib/tutor"
+import { evaluateTutorRules } from "../lib/tutor-rules"
 
 const sessionId = "11111111-1111-4111-8111-111111111111"
 
@@ -51,6 +52,36 @@ test("Phase 4 blocks recurring legal fees and exposes expert evidence", () => {
   assert.equal(result.ruleId, "legal-fee-recurrence")
   assert.equal(getExpertMoment(3, result.ruleId)?.frame, "f_0161")
   assert.equal(lookupGuardrails("legal").length, 1)
+})
+
+test("Integrated source-check prompts respect reviewed evidence", () => {
+  const acmePrompt = evaluateTutorRules({
+    values: { "arr-acme": 190_000 },
+    viewedDocIds: new Set<string>(),
+    lineStatus: { "arr-acme": "unverified" },
+  })
+  assert.equal(acmePrompt?.id, "acme-supersede")
+
+  const verifiedAcme = evaluateTutorRules({
+    values: { "arr-acme": 190_000 },
+    viewedDocIds: new Set<string>(),
+    lineStatus: { "arr-acme": "verified" },
+  })
+  assert.equal(verifiedAcme, null)
+
+  const relocationPrompt = evaluateTutorRules({
+    values: { "addback-relocation": 4_000_000 },
+    viewedDocIds: new Set<string>(),
+    lineStatus: { "addback-relocation": "unverified" },
+  })
+  assert.equal(relocationPrompt?.id, "relocation-recurring")
+
+  const reviewedRelocation = evaluateTutorRules({
+    values: { "addback-relocation": 4_000_000 },
+    viewedDocIds: new Set(["relocation-invoices"]),
+    lineStatus: { "addback-relocation": "source_opened" },
+  })
+  assert.equal(reviewedRelocation, null)
 })
 
 test("Phase 5 local fallback redacts common PII", () => {

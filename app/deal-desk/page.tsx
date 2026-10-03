@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 
+import { AppHeader } from "@/components/deal-desk/app-header"
 import { DealDeskProvider } from "@/components/deal-desk/session-provider"
 import { LboInputSheet } from "@/components/deal-desk/lbo-input-sheet"
 import { SidePanel } from "@/components/deal-desk/side-panel"
@@ -13,27 +14,16 @@ export const metadata: Metadata = {
 export default function DealDeskPage() {
   return (
     <DealDeskProvider>
-      <div className="flex h-svh flex-col overflow-hidden bg-background">
-        <header className="flex items-center justify-between border-b border-border px-4 py-2">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">Deal Desk</span>
-            <span className="text-xs text-muted-foreground">
-              Project Falcon — Seller EBITDA/ARR scrub
-            </span>
-          </div>
-          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
-            synthetic data
-          </span>
-        </header>
-
-        <main className="grid min-h-0 flex-1 grid-cols-[1fr_300px_340px] divide-x divide-border">
-          <section className="min-h-0">
+      <div className="flex h-svh min-w-[1100px] flex-col overflow-hidden bg-background">
+        <AppHeader />
+        <main className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_360px_340px] divide-x divide-border">
+          <section aria-label="Data room" className="min-h-0">
             <VdrViewer />
           </section>
-          <section className="min-h-0">
+          <section aria-label="LBO inputs" className="min-h-0">
             <LboInputSheet />
           </section>
-          <aside className="min-h-0">
+          <aside aria-label="Apprentice" className="min-h-0">
             <SidePanel />
           </aside>
         </main>
