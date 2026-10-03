@@ -30,6 +30,81 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 ---
 
+## [0.0.2] — 2026-10-04
+
+### Done (Phase 0 — Foundation, partial)
+
+- **`schemas/event.schema.json`** — JSON Schema (draft 2020-12) for a single `CaptureEvent` (`t`, `type`, `object`, `field`, `from`, `to`, `evidence_frame`, `salient_text`, `confidence`, `source`).
+- **`schemas/work-map.schema.json`** — JSON Schema for the `WorkMap` (`steps`, `guardrails`, `screen_moment`, `open_gaps`) with `$defs` for `step`, `guardrail`, `screenMoment`, `gap`.
+- **`schemas/client-tools.md`** — frozen client-tool contract for the interviewer and tutor agents, plus the server/MCP tools and the app→backend event bus rule.
+- **`fixtures/events.mock.json`** — realistic mock capture stream for the seeded demo run (Acme ARR, relocation add-back, capex ratio, save).
+- **`fixtures/work-map.mock.json`** — pre-baked Work Map (7 steps, 4 guardrails, 3 judgment calls, 3 open gaps) for developing the tutor without a live session.
+- **`.env.example`** — Supabase, ElevenLabs/ElevenAgents, vision-model, and app env vars; `.gitignore` updated to allow committing it.
+- All JSON fixtures parse cleanly.
+
+### Still open in Phase 0
+
+- [ ] Lock the exact demo script (dialog-level).
+- [ ] Validate fixtures against the schemas in CI (needs an ajv 8 dev dependency or a script).
+
+---
+
+## [0.0.3] — 2026-10-04
+
+### Done (Phase 1 — Sandbox "Deal Desk" app)
+
+- **`/deal-desk` page** — 3-pane layout: VDR viewer, LBO input sheet, Apprentice side panel. "synthetic data" label visible.
+- **Mock VDR** (`lib/vdr.ts`) — 8 seeded docs: EBITDA bridge, Acme MSA + Amendment 2 ("supersedes and replaces"), relocation invoices (3 years), capex history (4.1% vs 1.8%), Customer 3 Order Form + Add-On ("in addition to"), legal fee invoices (2 prior-year repeats).
+- **LBO input sheet** — ARR (Acme, Customer 3), add-backs (Relocation, Legal), capex ratio. Commit on blur/Enter emits `value_entered` (first entry) or `field_changed` (from → to).
+- **Save button** — emits `save_clicked`; routed through a pre-commit interceptor stub (always allows; Phase 4 swaps in the tutor's `block_commit`).
+- **Event bus** (`lib/event-bus.ts`, `hooks/use-events.ts`) — in-memory store via `useSyncExternalStore`; app events tagged `source: "app"`; each event also POSTed to the API.
+- **`/api/events` route handler** — validates and stores events in memory (POST/GET). Placeholder until Supabase.
+- **Screen capture hook** (`hooks/use-screen-capture.ts`) — `getDisplayMedia`, 1 fps sampling, grayscale frame-diff gate; vision call is not wired yet.
+- **Side panel** — share-screen control, off-the-record toggle (pauses event emission, clears frames, shows redaction banner), "frames not retained" switch, live event feed.
+- **Landing page** linking to the Deal Desk.
+- **Types** (`lib/types.ts`) mirroring `schemas/`.
+- **Lint/type fixes** — `use-mobile.ts` rewritten with `useSyncExternalStore`; targeted eslint-disable in `carousel.tsx`. `npm run lint`, `typecheck`, and `build` all pass.
+- **Verified in browser:** doc open, value entered, field changed, save, off-record, and API receipt of events.
+
+### Known gaps / not done yet
+
+- No ElevenAgents widget slot yet (side panel has no voice).
+- No question log panel.
+- `doc_scrolled` events are not emitted.
+- Capture frames are sampled but not sent anywhere (no vision model).
+- Events are in memory only (no Supabase); lost on server restart.
+- Not yet deployed to Vercel.
+- Event feed `salient_text` badges truncate long lines; minor styling.
+
+---
+
+## [0.0.4] — 2026-10-04
+
+### Done (Phase 1 leftovers: Supabase wiring + Vercel deploy)
+
+- **`supabase/migrations/0001_init.sql`** — tables `sessions`, `events`, `questions`, `gaps`, `work_maps`, `mastery`; RLS on; anon is read-only on `events`/`questions`/`gaps`; those three added to the `supabase_realtime` publication; private `frames` storage bucket; `purge_window()` function for off-the-record deletes (service role only). Idempotent.
+- **`lib/supabase/admin.ts`** (service role, server only) and **`lib/supabase/browser.ts`** (anon, read-only). Both return `null` when env is missing.
+- **`/api/events`** now persists to Supabase when configured, otherwise falls back to memory. Contract changed: `POST { session_id, event }` (uuid required); `GET ?session_id=`. Invalid session/event rejected with 422.
+- **Client session id** — `event-bus` generates a uuid per session and sends it with every event.
+- **`npm run seed`** (`scripts/seed.mjs`) — loads `fixtures/work-map.mock.json` into `work_maps` as the pre-baked seed (idempotent).
+- **Vercel** — project `agent` created under `abdibrokhims-projects`; first deploy is live at https://agent-nine-lake.vercel.app (verified `/deal-desk` and `/api/events` via `vercel curl`). Use `npx vercel@latest` (global CLI 33.4.1 is too old).
+- Verified: lint, typecheck, memory-fallback API (valid / bad session / bad event), and UI -> API payload.
+
+### Needs you (blocked on credentials)
+
+- [ ] Create the Supabase project, run `supabase/migrations/0001_init.sql` in the SQL Editor, fill `.env.local`, run `npm run seed`. The Supabase path is **untested** against a real project.
+- [ ] Add the same env vars in Vercel (Project Settings -> Environment Variables).
+- [ ] Decide on Vercel **Deployment Protection**: it is ON, so the URL needs a Vercel login. Turn it off (or add a bypass) before the demo/judging.
+- [ ] ElevenAgents API key + interviewer/tutor agent IDs; vision-model key.
+- [ ] Vercel serverless can't hold WebSockets and the memory fallback isn't shared across instances; production must use Supabase.
+
+### Known gaps
+
+- Off-the-record currently suppresses new events but does not call `purge_window()` or delete stored frames yet.
+- Browser Realtime subscription (`getSupabaseBrowser`) is not wired into the UI yet.
+
+---
+
 ## Next Steps (to finish the app)
 
 Ordered by the build priority in `ARCHITECTURE.md` §8. Each item lists concrete deliverables and a definition of done.

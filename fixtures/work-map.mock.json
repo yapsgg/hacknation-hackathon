@@ -1,0 +1,174 @@
+{
+  "workflow": "Seller EBITDA/ARR scrub",
+  "session_id": "demo-session-001",
+  "expert": "Sabine R.",
+  "created_at": "2026-10-04T00:20:00Z",
+  "confirmed_by_expert": true,
+  "correction_count": 1,
+  "steps": [
+    {
+      "id": 1,
+      "title": "Open the management Adjusted EBITDA bridge",
+      "screen_moment": { "t": 12.0, "frame": "f_0012", "clip": [10.0, 20.0] },
+      "decision": "Read the seller's add-back bridge before touching any inputs.",
+      "reason_quote": "\"Purchase price is a multiple of EBITDA, so every add-back is worth money. Read it first, skeptically.\"",
+      "reason_t": 14.2,
+      "guardrails": [
+        {
+          "rule": "Never accept a management-adjusted metric into the model without opening the primary source document.",
+          "type": "check",
+          "evidence": { "t": 14.2, "quote": "every add-back is worth money" },
+          "confidence": 0.9
+        }
+      ],
+      "judgment_call": false,
+      "status": "confirmed",
+      "off_record": false
+    },
+    {
+      "id": 2,
+      "title": "Validate ARR for Customer Acme",
+      "screen_moment": { "t": 63.8, "frame": "f_0063", "clip": [60.0, 100.0] },
+      "decision": "Set ARR to $110k, not $190k.",
+      "reason_quote": "\"Amendment 2 supersedes and replaces the original order form, so it's a replacement, not an addition.\"",
+      "reason_t": 95.4,
+      "guardrails": [
+        {
+          "rule": "Read the amendment for 'supersedes/replaces' vs 'in addition to' before summing contract values.",
+          "type": "check",
+          "evidence": { "t": 63.8, "quote": "supersedes and replaces" },
+          "confidence": 0.92
+        }
+      ],
+      "judgment_call": true,
+      "status": "confirmed",
+      "off_record": false
+    },
+    {
+      "id": 3,
+      "title": "Assess the $4M relocation add-back",
+      "screen_moment": { "t": 150.3, "frame": "f_0150", "clip": [145.0, 165.0] },
+      "decision": "Flag the $4M relocation add-back for QoE; do not accept it as non-recurring.",
+      "reason_quote": "\"A one-time cost that shows up in two or more prior years' invoices is recurring. This one shows up three years running.\"",
+      "reason_t": 152.8,
+      "guardrails": [
+        {
+          "rule": "A one-time cost appearing in 2+ prior years' invoices is recurring — flag for QoE.",
+          "type": "exception",
+          "evidence": { "t": 150.3, "quote": "Relocation expense 2021, 2022, 2023" },
+          "confidence": 0.88
+        }
+      ],
+      "judgment_call": true,
+      "status": "confirmed",
+      "off_record": false
+    },
+    {
+      "id": 4,
+      "title": "Verify the maintenance capex ratio",
+      "screen_moment": { "t": 199.6, "frame": "f_0199", "clip": [180.0, 205.0] },
+      "decision": "Challenge management's 1.8% capex ratio against the 4.1% 3-year average.",
+      "reason_quote": "\"Capex below the 3-year average ratio needs a reason, or it goes to QoE. You don't suddenly need less capital after a buyout.\"",
+      "reason_t": 200.5,
+      "guardrails": [
+        {
+          "rule": "Capex below the 3-yr average ratio requires a documented reason, else escalate to QoE.",
+          "type": "limit",
+          "evidence": { "t": 199.6, "quote": "3-year average capex ratio: 4.1%" },
+          "confidence": 0.9
+        }
+      ],
+      "judgment_call": true,
+      "status": "confirmed",
+      "off_record": false
+    },
+    {
+      "id": 5,
+      "title": "Confirm the top-20 customer contract set",
+      "screen_moment": { "t": 42.1, "frame": "f_0042", "clip": [40.0, 50.0] },
+      "decision": "Open each top-20 contract and its amendments before trusting the ARR schedule.",
+      "reason_quote": "\"If it's not in the top-20 folder, it doesn't matter yet. If it is, you read every amendment.\"",
+      "reason_t": 45.0,
+      "guardrails": [
+        {
+          "rule": "Every top-20 customer must have its amendments checked before its ARR is accepted.",
+          "type": "check",
+          "evidence": { "t": 45.0, "quote": "read every amendment" },
+          "confidence": 0.87
+        }
+      ],
+      "judgment_call": false,
+      "status": "confirmed",
+      "off_record": false
+    },
+    {
+      "id": 6,
+      "title": "Build the ARR cascade",
+      "screen_moment": { "t": 88.2, "frame": "f_0088", "clip": [85.0, 100.0] },
+      "decision": "Beginning ARR + New Logos + Upsells − Churn, using validated contract values only.",
+      "reason_quote": "\"The cascade is only as good as the contracts underneath it.\"",
+      "reason_t": 90.0,
+      "guardrails": [
+        {
+          "rule": "No ARR line enters the cascade without a validated source contract.",
+          "type": "check",
+          "evidence": { "t": 90.0, "quote": "only as good as the contracts" },
+          "confidence": 0.85
+        }
+      ],
+      "judgment_call": false,
+      "status": "confirmed",
+      "off_record": false
+    },
+    {
+      "id": 7,
+      "title": "Commit inputs and run the debt schedule",
+      "screen_moment": { "t": 205.6, "frame": "f_0205", "clip": [203.0, 210.0] },
+      "decision": "Do not commit until flagged items are escalated to QoE / legal.",
+      "reason_quote": "\"Before this saves, the relocation add-back and the capex ratio go to QoE. That's not my call to make alone.\"",
+      "reason_t": 206.2,
+      "guardrails": [
+        {
+          "rule": "Escalate ambiguous contract language and recurring 'one-time' costs to QoE before committing.",
+          "type": "stop_and_ask",
+          "evidence": { "t": 206.2, "quote": "not my call to make alone" },
+          "confidence": 0.91
+        }
+      ],
+      "judgment_call": true,
+      "status": "confirmed",
+      "off_record": false
+    }
+  ],
+  "guardrails_global": [
+    {
+      "rule": "Never hardcode a management-adjusted metric into the investment model without verifying the primary source document.",
+      "type": "check",
+      "evidence": { "t": 14.2, "quote": "Read it first, skeptically." },
+      "confidence": 0.95
+    }
+  ],
+  "open_gaps": [
+    {
+      "id": "gap-1",
+      "step_id": 3,
+      "question": "Is the relocation threshold the same for every add-back category?",
+      "risk": "high",
+      "status": "open"
+    },
+    {
+      "id": "gap-2",
+      "step_id": 3,
+      "question": "What evidence would make you accept the $4M as genuinely non-recurring?",
+      "risk": "high",
+      "status": "open"
+    },
+    {
+      "id": "gap-3",
+      "step_id": 2,
+      "question": "What do you do when the VDR contains no amendment for a contract?",
+      "risk": "medium",
+      "status": "open"
+    }
+  ]
+}

@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hacknation.app/schemas/work-map.schema.json",
+  "title": "WorkMap",
+  "description": "The structured capture of a senior PE expert's diligence reasoning, produced by the Map module and confirmed by the expert before the tutor may use it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["workflow", "steps"],
+  "properties": {
+    "workflow": {
+      "type": "string",
+      "description": "Human-readable name of the process, e.g. \"Seller EBITDA/ARR scrub\"."
+    },
+    "session_id": {
+      "type": ["string", "null"]
+    },
+    "expert": {
+      "type": ["string", "null"],
+      "description": "Display name of the captured expert (senior partner / VP)."
+    },
+    "created_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "confirmed_by_expert": {
+      "type": "boolean",
+      "default": false,
+      "description": "True only after the expert approves the map (review-before-publish)."
+    },
+    "correction_count": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "description": "Number of corrections the expert made during teach-back."
+    },
+    "steps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/step" }
+    },
+    "guardrails_global": {
+      "type": "array",
+      "description": "Rules that apply across the whole workflow, not to a single step.",
+      "items": { "$ref": "#/$defs/guardrail" },
+      "default": []
+    },
+    "open_gaps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/gap" },
+      "default": []
+    }
+  },
+  "$defs": {
+    "screenMoment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t"],
+      "properties": {
+        "t": { "type": "number", "minimum": 0 },
+        "frame": { "type": ["string", "null"] },
+        "clip": {
+          "type": ["array", "null"],
+          "description": "[start, end] seconds for replay.",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+    "guardrail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "type"],
+      "properties": {
+        "rule": {
+          "type": "string",
+          "description": "Conditional rule in the expert's own words, e.g. \"Read amendment for 'supersedes/replaces' vs 'in addition to' before summing.\""
+        },
+        "type": {
+          "type": "string",
+          "enum": ["check", "limit", "exception", "stop_and_ask", "none"],
+          "description": "check = a verification step; limit = a dollar/ratio threshold; exception = an escape hatch; stop_and_ask = escalation path; none = expert explicitly said no guardrail here."
+        },
+        "evidence": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "t": { "type": ["number", "null"] },
+            "quote": { "type": ["string", "null"] }
+          }
+        },
+        "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "status"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 1 },
+        "title": { "type": "string" },
+        "screen_moment": { "anyOf": [{ "$ref": "#/$defs/screenMoment" }, { "type": "null" }] },
+        "decision": {
+          "type": ["string", "null"],
+          "description": "What the expert decided to do at this step."
+        },
+        "reason_quote": {
+          "type": ["string", "null"],
+          "description": "The expert's own words explaining the decision."
+        },
+        "reason_t": { "type": ["number", "null"] },
+        "guardrails": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/guardrail" },
+          "default": []
+        },
+        "judgment_call": {
+          "type": "boolean",
+          "default": false,
+          "description": "True if this step required expert judgment (cannot be mechanically automated)."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["confirmed", "corrected", "unresolved"]
+        },
+        "off_record": {
+          "type": "boolean",
+          "default": false,
+          "description": "True if this step fell inside a redacted (off-the-record) window."
+        }
+      }
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "question"],
+      "properties": {
+        "id": { "type": "string" },
+        "step_id": { "type": ["integer", "null"] },
+        "question": { "type": "string" },
+        "risk": {
+          "type": "string",
+          "enum": ["high", "medium", "low"],
+          "description": "Dollar-limit gaps outrank labeling gaps."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["open", "closed", "waived"],
+          "default": "open"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hacknation.app/schemas/event.schema.json",
+  "title": "CaptureEvent",
+  "description": "A single normalized UI event produced by the vision pipeline or emitted directly by the sandbox app (ground-truth). One event per screen state change.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["t", "type", "object"],
+  "properties": {
+    "t": {
+      "type": "number",
+      "description": "Seconds since session start (monotonic, fractional allowed).",
+      "minimum": 0
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "field_changed",
+        "doc_opened",
+        "doc_scrolled",
+        "value_entered",
+        "save_clicked",
+        "navigation"
+      ]
+    },
+    "object": {
+      "type": "string",
+      "description": "The entity the event refers to, e.g. \"Customer: Acme / MSA Amendment 2\"."
+    },
+    "field": {
+      "type": ["string", "null"],
+      "description": "Form field name for value/field events, e.g. \"ARR input\"."
+    },
+    "from": {
+      "type": ["number", "string", "null"],
+      "description": "Previous value before the change (number for money/counts, string otherwise)."
+    },
+    "to": {
+      "type": ["number", "string", "null"],
+      "description": "New value after the change."
+    },
+    "evidence_frame": {
+      "type": ["string", "null"],
+      "description": "Frame id that evidences this event, e.g. \"f_0192\"."
+    },
+    "salient_text": {
+      "type": "array",
+      "description": "Literal on-screen text the vision model read, used to anchor questions to what is visible.",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "confidence": {
+      "type": ["number", "null"],
+      "description": "Model confidence for vision-derived events, 0..1. Null/1.0 for app-emitted ground-truth events.",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "source": {
+      "type": "string",
+      "enum": ["vision", "app"],
+      "description": "Which pipeline produced the event. \"vision\" = primary source per the brief; \"app\" = ground-truth fallback, never shown to the agent.",
+      "default": "vision"
+    }
+  }
+}
