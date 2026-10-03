@@ -63,7 +63,7 @@ export function EventFeed() {
                   </span>
                 </div>
                 <p className="mt-1.5 truncate font-medium">{event.object}</p>
-                {event.field ? (
+                {event.field && event.type !== "save_clicked" ? (
                   <p className="text-muted-foreground">
                     {event.field}: {formatValue(event.from)} →{" "}
                     <span className="text-foreground">

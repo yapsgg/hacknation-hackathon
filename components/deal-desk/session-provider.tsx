@@ -8,9 +8,28 @@ import {
   setPaused,
   startSession,
 } from "@/lib/event-bus"
+import { LBO_LINES, type LineStatus } from "@/lib/lbo"
 import { getVdrDoc } from "@/lib/vdr"
 
+export interface Interjection {
+  id: string
+  /** "scripted" = local demo rule; "agent" = live tutor reply. */
+  origin: "scripted" | "agent"
+  lineId: string
+  headline: string
+  questions: string[]
+  /** VDR documents the tutor wants the analyst to open before saving. */
+  docIds: string[]
+}
+
+type ManualStatus = Extract<LineStatus, "flagged" | "verified">
+
 interface DealDeskContextValue {
+  interjection: Interjection | null
+  setInterjection: (value: Interjection | null) => void
+  viewedDocIds: ReadonlySet<string>
+  lineStatus: (lineId: string) => LineStatus
+  setManualStatus: (lineId: string, status: ManualStatus | null) => void
   offRecord: boolean
   setOffRecord: (value: boolean) => void
   framesNotStored: boolean
@@ -27,6 +46,13 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
   const [offRecord, setOffRecordState] = React.useState(false)
   const [framesNotStored, setFramesNotStored] = React.useState(true)
   const [currentDocId, setCurrentDocId] = React.useState<string | null>(null)
+  const [viewedDocIds, setViewedDocIds] = React.useState<ReadonlySet<string>>(
+    () => new Set()
+  )
+  const [manual, setManual] = React.useState<Record<string, ManualStatus>>({})
+  const [interjection, setInterjection] = React.useState<Interjection | null>(
+    null
+  )
   const [frames, setFrames] = React.useState<CapturedFrame[]>([])
 
   React.useEffect(() => {
@@ -49,6 +75,7 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
     const doc = getVdrDoc(id)
     if (!doc) return
     setCurrentDocId(id)
+    setViewedDocIds((prev) => new Set(prev).add(id))
     emitAppEvent({
       type: "doc_opened",
       object: `VDR / ${doc.path}`,
@@ -56,8 +83,38 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
+  const setManualStatus = React.useCallback(
+    (lineId: string, status: ManualStatus | null) => {
+      setManual((prev) => {
+        const next = { ...prev }
+        if (status === null) delete next[lineId]
+        else next[lineId] = status
+        return next
+      })
+    },
+    []
+  )
+
+  const lineStatus = React.useCallback(
+    (lineId: string): LineStatus => {
+      const override = manual[lineId]
+      if (override) return override
+      const line = LBO_LINES.find((l) => l.id === lineId)
+      if (line && line.sourceDocIds.every((id) => viewedDocIds.has(id))) {
+        return "source_opened"
+      }
+      return "unverified"
+    },
+    [manual, viewedDocIds]
+  )
+
   const value = React.useMemo<DealDeskContextValue>(
     () => ({
+      interjection,
+      setInterjection,
+      viewedDocIds,
+      lineStatus,
+      setManualStatus,
       offRecord,
       setOffRecord,
       framesNotStored,
@@ -68,6 +125,10 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
       capture,
     }),
     [
+      interjection,
+      viewedDocIds,
+      lineStatus,
+      setManualStatus,
       offRecord,
       setOffRecord,
       framesNotStored,
