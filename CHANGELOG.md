@@ -117,6 +117,20 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 - [ ] Persist mastery, Work Map approval, and review audit events to Supabase.
 - [ ] Persist approved frame clips only when the retention toggle permits it.
 
+## [0.0.6] — 2026-10-04
+
+### Done (orchestration foundation — feature branch)
+
+- **`TODO.md` generator** — `npm run todo` reconciles historical Done sections with legacy unchecked lists and produces one current work queue.
+- **Model-routing plan** — `scripts/orchestrate.mjs` assigns planner, implementer, fast-worker, and reviewer roles without executing model calls or file changes.
+- **Approval-first policy** — `orchestrator/roles.json` records model tiers, ownership boundaries, and gates for secrets, migrations, external writes, PRs, merges, and deployments.
+
+### Still open for orchestration
+
+- [ ] Add an executable Agents SDK adapter after the team approves credentials, tools, branch/worktree policy, and human approval flow.
+- [ ] Persist task runs, worker artifacts, test evidence, and reviewer decisions.
+- [ ] Add CI validation that rejects a task when its claimed files overlap another active task.
+
 ### Known gaps
 
 - Off-the-record now calls the privacy purge route; real frame persistence is still gated until the capture storage path is implemented.
