@@ -135,6 +135,19 @@ const blockerItems = unique(blockers).filter((item) => !completedItems.includes(
 
 const generated = `# AI Apprentice TODO\n\nGenerated from [CHANGELOG.md](./CHANGELOG.md) by npm run todo on ${new Date().toISOString().slice(0, 10)}.\n\nThe generator reconciles old unchecked checklist items against later Done sections. Treat this file as the team work queue; treat the changelog as the historical record.\n\n## Completed\n\n${completedItems.map((item) => `- [x] ${item}`).join("\n") || "- [x] No completed items detected."}\n\n## Open work\n\n${openItems.map((item) => `- [ ] ${item}`).join("\n") || "- [ ] No open work detected."}\n\n## Blocked or credential-dependent\n\n${blockerItems.map((item) => `- [ ] ${item}`).join("\n") || "- [ ] No blockers detected."}\n\n## Recommended execution order\n\n1. Resolve the Supabase, ElevenAgents, Presidio, Vercel, and Node 22 prerequisites.\n2. Connect the deterministic Phase 4 tutor tools to the real ElevenAgents tutor session.\n3. Persist mastery, Work Map approval, and review audit events.\n4. Complete the Phase 3 Map/Debrief handoff and browser Realtime path.\n5. Build the recorded fallback, production dry-runs, and final demo materials.\n6. Re-run npm run todo after every merged phase.\n\n## Orchestrator assignments\n\n- **Planner/reviewer — Sol/high:** architecture, integrations, security, conflict resolution, final review.\n- **Implementer — Sol/medium:** one bounded feature per branch/worktree.\n- **Fast worker — Luna/low:** docs, fixtures, TODO maintenance, formatting, and focused tests.\n- **Human approval required:** secrets, migrations, external writes, branch pushes, PRs, merges, and deploys.\n`
 
-fs.writeFileSync(outputPath, generated)
+const executionOrder = [
+  "1. Integrate `worktree-deal-desk-ui-v2` into a branch based on `testing` and preserve the Phase 4/5 behavior.",
+  "2. Run tests, typecheck, lint, build, and a Preview browser acceptance pass on the combined app.",
+  "3. Complete the remaining Phase 2/3 capture, Work Map, debrief, and Realtime paths.",
+  "4. Configure Presidio and judge-safe Vercel access, then repeat the live privacy deletion test.",
+  "5. Build the recorded fallback, production dry-runs, and final demo materials.",
+  "6. Re-run `npm run todo` after every merged phase.",
+].join("\n")
+const generatedWithCurrentOrder = generated.replace(
+  /1\. Resolve the Supabase[\s\S]+?6\. Re-run npm run todo after every merged phase\./,
+  executionOrder
+)
+
+fs.writeFileSync(outputPath, generatedWithCurrentOrder)
 console.log(`Generated ${path.relative(root, outputPath)}`)
 console.log(`Completed: ${completedItems.length}; open: ${openItems.length}; blockers: ${blockerItems.length}`)
