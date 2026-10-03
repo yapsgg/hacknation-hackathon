@@ -59,16 +59,23 @@ The generator reconciles old unchecked checklist items against later Done sectio
 - [x] **Persistent tutor state** — mastery and approval are stored through `/api/tutor/state`, with Supabase persistence and a memory fallback. _(source: [0.0.8] — 2026-10-04 / Done (Phase 4 — Teach / Tutor implementation complete))_
 - [x] **Agent provisioning updated** — the Tutor prompt/tool set now includes Work Map lookup and off-record control. _(source: [0.0.8] — 2026-10-04 / Done (Phase 4 — Teach / Tutor implementation complete))_
 - [x] **Acceptance tests** — correct Acme/Customer 3 values pass; the over-learned replacement mistake and recurring legal fee are blocked with expert evidence. _(source: [0.0.8] — 2026-10-04 / Done (Phase 4 — Teach / Tutor implementation complete))_
+- [x] Run `supabase/migrations/0002_phase_4_5.sql` on the live project. Reported complete by the infrastructure owner on 2026-10-03; recheck after integration. _(source: [0.0.8] — 2026-10-04 / Deployment action required for Phase 4)_
+- [x] Add the required Preview environment variables and run `npm run provision:agents` with the ElevenLabs key so the remote Tutor receives the three new tools. Reported complete on 2026-10-03. _(source: [0.0.8] — 2026-10-04 / Deployment action required for Phase 4)_
 - [x] **Transcript privacy boundary** — live Tutor messages are sent to `/api/privacy/transcripts`, redacted before storage, and rejected if a configured Presidio service fails. _(source: [0.0.9] — 2026-10-04 / Done (Phase 5 — Trust & Privacy implementation complete))_
 - [x] **Retention enforcement** — changed frames upload only when retention is enabled, the Work Map is approved, and the session is on-record. _(source: [0.0.9] — 2026-10-04 / Done (Phase 5 — Trust & Privacy implementation complete))_
 - [x] **Window-accurate purge** — off-record removes events, redacted transcripts, and only frame objects whose timestamps fall in the requested window. _(source: [0.0.9] — 2026-10-04 / Done (Phase 5 — Trust & Privacy implementation complete))_
 - [x] **Privacy evidence** — purge windows are persisted, audit actions are recorded, and the UI shows greyed/struck off-record timeline segments with removal counts. _(source: [0.0.9] — 2026-10-04 / Done (Phase 5 — Trust & Privacy implementation complete))_
 - [x] **Automated privacy tests** — local PII redaction, transcript storage, retained-frame storage, and off-record deletion pass through the memory fallback. _(source: [0.0.9] — 2026-10-04 / Done (Phase 5 — Trust & Privacy implementation complete))_
+- [x] Verify the new migration, storage bucket access, and off-record deletion against live Supabase. Reported complete by the infrastructure owner on 2026-10-03; repeat after UI integration. _(source: [0.0.9] — 2026-10-04 / Deployment action required for Phase 5)_
 - [x] **Retention is server-authorized** — frame uploads are rejected unless the session has explicitly enabled retention; a stale browser request can no longer turn retention back on. _(source: [0.0.10] — 2026-10-04 / Done (Phase 5 closeout hardening))_
 - [x] **Disable means delete** — switching to “frames not retained” first disables future uploads and then removes all stored frames for that session, including paginated Supabase objects. _(source: [0.0.10] — 2026-10-04 / Done (Phase 5 closeout hardening))_
 - [x] **Readiness visibility** — `/api/privacy/status` reports Supabase/Presidio readiness without returning secrets, and the Deal Desk clearly labels synthetic-only mode. _(source: [0.0.10] — 2026-10-04 / Done (Phase 5 closeout hardening))_
 - [x] **Operational closeout** — `PHASE5_CLOSEOUT.md` records the exact environment, migration, and live acceptance steps. Node `>=22.22.0` is now declared. _(source: [0.0.10] — 2026-10-04 / Done (Phase 5 closeout hardening))_
 - [x] **Expanded privacy tests** — retention deletion, stale-upload rejection, overlapping Presidio findings, fail-closed transcript storage, and no-secret readiness reporting are covered. _(source: [0.0.10] — 2026-10-04 / Done (Phase 5 closeout hardening))_
+- [x] Apply `supabase/migrations/0002_phase_4_5.sql` to the live Supabase project. Reported complete on 2026-10-03. _(source: [0.0.10] — 2026-10-04 / Still requires deployed infrastructure)_
+- [x] **Infrastructure handoff** — the owner reported the Phase 4/5 migration, Preview environment, current ElevenAgents tools, and live Supabase purge evidence complete on 2026-10-03. _(source: [0.0.11] — 2026-10-04 / Done (infrastructure handoff reconciliation))_
+- [x] **Safe integration order** — the latest UI must be integrated from `worktree-deal-desk-ui-v2` into a branch based on `testing`; only the validated combined branch may later move to `main`. _(source: [0.0.11] — 2026-10-04 / Done (infrastructure handoff reconciliation))_
+- [x] **Canonical status corrected** — mastery, Work Map approval, and audit persistence are already implemented on `testing`; Presidio remains required before real data. _(source: [0.0.11] — 2026-10-04 / Done (infrastructure handoff reconciliation))_
 - [x] **Define shared schemas** — create `/schemas/` with `event.schema.json` and `work-map.schema.json` exactly as specified in `ARCHITECTURE.md` §2–3. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
 - [x] **Client tool contract** — agree on names and signatures: `get_screen_state`, `log_question`, `mark_gap`, `start_debrief`, `submit_teachback_result`, `block_commit`, `replay_moment`, `update_mastery`, `lookup_guardrail`, `get_expert_moment`. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
 - [x] **Mock event stream** — `fixtures/events.mock.json` so each engineer can develop independently. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
@@ -125,19 +132,16 @@ The generator reconciles old unchecked checklist items against later Done sectio
 - [ ] Add an executable Agents SDK adapter after the team approves credentials, tools, branch/worktree policy, and human approval flow. _(source: [0.0.6] — 2026-10-04 / Still open for orchestration)_
 - [ ] Vision model choice + key (recommendation: Gemini Flash). _(source: [0.0.7] — 2026-10-04 / Needs you)_
 - [ ] **Rotate** the Supabase service-role key and the ElevenLabs key after the hackathon (both were shared in chat). _(source: [0.0.7] — 2026-10-04 / Needs you)_
-- [ ] Run `supabase/migrations/0002_phase_4_5.sql` on the live project. _(source: [0.0.8] — 2026-10-04 / Deployment action required for Phase 4)_
-- [ ] Add the required Preview environment variables and run `npm run provision:agents` with the ElevenLabs key so the remote Tutor receives the three new tools. _(source: [0.0.8] — 2026-10-04 / Deployment action required for Phase 4)_
 - [ ] Exercise one real microphone conversation on the deployed preview; local automated tests cannot authenticate without the team credentials. _(source: [0.0.8] — 2026-10-04 / Deployment action required for Phase 4)_
-- [ ] Verify the new migration, storage bucket access, and off-record deletion against live Supabase. _(source: [0.0.9] — 2026-10-04 / Deployment action required for Phase 5)_
 
 ## Recommended execution order
 
-1. Resolve the Supabase, ElevenAgents, Presidio, Vercel, and Node 22 prerequisites.
-2. Connect the deterministic Phase 4 tutor tools to the real ElevenAgents tutor session.
-3. Persist mastery, Work Map approval, and review audit events.
-4. Complete the Phase 3 Map/Debrief handoff and browser Realtime path.
+1. Integrate `worktree-deal-desk-ui-v2` into a branch based on `testing` and preserve the Phase 4/5 behavior.
+2. Run tests, typecheck, lint, build, and a Preview browser acceptance pass on the combined app.
+3. Complete the remaining Phase 2/3 capture, Work Map, debrief, and Realtime paths.
+4. Configure Presidio and judge-safe Vercel access, then repeat the live privacy deletion test.
 5. Build the recorded fallback, production dry-runs, and final demo materials.
-6. Re-run npm run todo after every merged phase.
+6. Re-run `npm run todo` after every merged phase.
 
 ## Orchestrator assignments
 

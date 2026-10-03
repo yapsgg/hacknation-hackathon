@@ -180,8 +180,8 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 ### Deployment action required for Phase 4
 
-- [ ] Run `supabase/migrations/0002_phase_4_5.sql` on the live project.
-- [ ] Add the required Preview environment variables and run `npm run provision:agents` with the ElevenLabs key so the remote Tutor receives the three new tools.
+- [x] Run `supabase/migrations/0002_phase_4_5.sql` on the live project. Reported complete by the infrastructure owner on 2026-10-03; recheck after integration.
+- [x] Add the required Preview environment variables and run `npm run provision:agents` with the ElevenLabs key so the remote Tutor receives the three new tools. Reported complete on 2026-10-03.
 - [ ] Exercise one real microphone conversation on the deployed preview; local automated tests cannot authenticate without the team credentials.
 
 ---
@@ -200,7 +200,7 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 ### Deployment action required for Phase 5
 
 - [ ] Provide `PRESIDIO_ANALYZER_URL` for the deployed Analyzer service before using real data.
-- [ ] Verify the new migration, storage bucket access, and off-record deletion against live Supabase.
+- [x] Verify the new migration, storage bucket access, and off-record deletion against live Supabase. Reported complete by the infrastructure owner on 2026-10-03; repeat after UI integration.
 - [ ] Test microphone/screen-share permissions and the voice phrase “off the record” in Chrome on the demo laptop.
 
 ---
@@ -218,9 +218,26 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 ### Still requires deployed infrastructure
 
-- [ ] Apply `supabase/migrations/0002_phase_4_5.sql` to the live Supabase project.
+- [x] Apply `supabase/migrations/0002_phase_4_5.sql` to the live Supabase project. Reported complete on 2026-10-03.
 - [ ] Configure a reachable `PRESIDIO_ANALYZER_URL` in Vercel before any real data is used.
 - [ ] Run the live acceptance script in `PHASE5_CLOSEOUT.md` with Chrome microphone and screen-share permissions.
+
+---
+
+## [0.0.11] — 2026-10-04
+
+### Done (infrastructure handoff reconciliation)
+
+- **Infrastructure handoff** — the owner reported the Phase 4/5 migration, Preview environment, current ElevenAgents tools, and live Supabase purge evidence complete on 2026-10-03.
+- **Safe integration order** — the latest UI must be integrated from `worktree-deal-desk-ui-v2` into a branch based on `testing`; only the validated combined branch may later move to `main`.
+- **Canonical status corrected** — mastery, Work Map approval, and audit persistence are already implemented on `testing`; Presidio remains required before real data.
+
+### Still requires human or credentialed verification
+
+- [ ] Repeat the live deletion check after the UI integration is deployed.
+- [ ] Configure a reachable `PRESIDIO_ANALYZER_URL` before using real data.
+- [ ] Run the microphone, screen-share, and spoken off-record flow in Chrome.
+- [ ] Configure judge access around Vercel Deployment Protection.
 
 ---
 
