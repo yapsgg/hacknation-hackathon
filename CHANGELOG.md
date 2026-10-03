@@ -105,6 +105,35 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 ---
 
+## [0.0.5] — 2026-10-04
+
+### Done (Supabase live + ElevenAgents provisioned)
+
+- **Supabase connected** — project `eivlugijbvxtdbmnswjq`. Schema from `0001_init.sql` verified in place via the Supabase MCP (6 tables, RLS, Realtime on `events`/`questions`/`gaps`, private `frames` bucket, `purge_window`). `npm run seed` loaded the 7-step Work Map into `work_maps`.
+- **Persistence verified end to end** — `POST /api/events` returned `store: "supabase"` locally and on the production deploy; rows landed in `sessions`/`events` (test rows deleted afterwards).
+- **Env** — `.env.local` (git-ignored) holds the Supabase URL/keys and the ElevenLabs key + agent ids. Supabase URL/anon key, service-role key, ElevenLabs key and both agent ids were added to Vercel (Production; Supabase vars also in Development). Preview environment was not set.
+- **Production redeployed** to https://agent-nine-lake.vercel.app with the Supabase env.
+- **`scripts/provision-agents.mjs`** + **`npm run provision:agents`** — creates/updates the ElevenAgents client tools and both agents via the API. Idempotent: tools matched by name, agents patched when an id is already in `.env.local`.
+  - 8 client tools matching `schemas/client-tools.md`: `get_screen_state`, `log_question`, `mark_gap`, `start_debrief`, `submit_teachback_result` (Interviewer); `get_screen_state`, `block_commit`, `replay_moment`, `update_mastery` (Tutor).
+  - **Interviewer** (`agent_4201m41x08y7ef8s9z8rgsv6dnhv`): silent unless the Governor grants a slot, one short anchored question, never asks what the screen shows, off-the-record handling, debrief + teach-back flow.
+  - **Tutor** (`agent_5401m41x0bctfrnt1x99tvj698td`): predict / watch / intercept / explain / score loop; rules are conditional (adds when the document says "in addition to") so the Customer 3 case is not over-blocked.
+  - Both: `claude-sonnet-4-6`, default voice, Expressive Mode (`eleven_v3_conversational`), patient turn-taking, 30 min cap, dynamic variables (`session_id`, `questions_asked`, `case_id`, `mastery_state`).
+
+### Needs you
+
+- [ ] Vision model choice + key (recommendation: Gemini Flash).
+- [ ] Decide on Vercel **Deployment Protection** (still ON; judges need a Vercel login).
+- [ ] **Rotate** the Supabase service-role key and the ElevenLabs key after the hackathon (both were shared in chat).
+
+### Known gaps
+
+- Tutor MCP tools (`lookup_guardrail`, `get_expert_moment`) not built; Work Map not yet in the Tutor's knowledge base.
+- No voice widget / client-tool handlers in the Deal Desk yet; agents are not connected to the app.
+- Question Governor, vision loop, off-the-record purge and Realtime UI subscription still open (see below).
+- Supabase advisor notes: `public.rls_auto_enable()` is executable by `anon`/`authenticated` (Supabase-provided, not ours); `sessions`/`work_maps`/`mastery` have RLS with no policies on purpose (service role only).
+
+---
+
 ## Next Steps (to finish the app)
 
 Ordered by the build priority in `ARCHITECTURE.md` §8. Each item lists concrete deliverables and a definition of done.
