@@ -16,6 +16,19 @@ const globalForEvents = globalThis as unknown as {
 }
 const memory = (globalForEvents.__dealDeskEvents ??= [])
 
+export function purgeMemoryEvents(
+  sessionId: string,
+  from: number,
+  to: number
+): number {
+  const before = memory.length
+  const retained = memory.filter(
+    (row) => row.session_id !== sessionId || row.event.t < from || row.event.t > to
+  )
+  memory.splice(0, memory.length, ...retained)
+  return before - memory.length
+}
+
 const VALID_TYPES = new Set<CaptureEvent["type"]>([
   "field_changed",
   "doc_opened",

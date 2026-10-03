@@ -98,9 +98,42 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 - [ ] ElevenAgents API key + interviewer/tutor agent IDs; vision-model key.
 - [ ] Vercel serverless can't hold WebSockets and the memory fallback isn't shared across instances; production must use Supabase.
 
+## [0.0.5] — 2026-10-04
+
+### Done (Phase 4/5 demo slice — feature branch)
+
+- **Tutor rules** — `lib/tutor.ts` implements the seeded PE guardrails, including the Customer 3 “in addition to” exception, recurring relocation/legal costs, and capex-below-average escalation.
+- **Pre-commit interceptor** — the LBO Save action now evaluates the Work Map rules, blocks unsafe commits, shows the reason, and links to the relevant expert moment.
+- **Expert replay fallback** — replay cards show the seeded decision, quote, frame id, and clip interval until real frame clips are available.
+- **Mastery checklist** — the Tutor panel tracks each rule as `unseen`, `hit`, or `missed`.
+- **Review before publish** — Tutor access can be revoked until the expert-reviewed Work Map is approved.
+- **Off-the-record purge** — the browser clears local events and frames, while `/api/privacy/purge` removes memory events or Supabase events and session-prefixed stored frames.
+- **Transcript privacy boundary** — `/api/privacy/redact` provides a conservative local fallback and reports its provider explicitly; a hosted Presidio Analyzer can be added later.
+
+### Still open for Phase 4/5
+
+- [ ] Connect the Tutor panel to the real ElevenAgents tutor session and client tools.
+- [ ] Replace the local redaction fallback with a configured Presidio Analyzer service before handling real deal data.
+- [ ] Persist mastery, Work Map approval, and review audit events to Supabase.
+- [ ] Persist approved frame clips only when the retention toggle permits it.
+
+## [0.0.6] — 2026-10-04
+
+### Done (orchestration foundation — feature branch)
+
+- **`TODO.md` generator** — `npm run todo` reconciles historical Done sections with legacy unchecked lists and produces one current work queue.
+- **Model-routing plan** — `scripts/orchestrate.mjs` assigns planner, implementer, fast-worker, and reviewer roles without executing model calls or file changes.
+- **Approval-first policy** — `orchestrator/roles.json` records model tiers, ownership boundaries, and gates for secrets, migrations, external writes, PRs, merges, and deployments.
+
+### Still open for orchestration
+
+- [ ] Add an executable Agents SDK adapter after the team approves credentials, tools, branch/worktree policy, and human approval flow.
+- [ ] Persist task runs, worker artifacts, test evidence, and reviewer decisions.
+- [ ] Add CI validation that rejects a task when its claimed files overlap another active task.
+
 ### Known gaps
 
-- Off-the-record currently suppresses new events but does not call `purge_window()` or delete stored frames yet.
+- Off-the-record now calls the privacy purge route; real frame persistence is still gated until the capture storage path is implemented.
 - Browser Realtime subscription (`getSupabaseBrowser`) is not wired into the UI yet.
 
 ---
