@@ -26,6 +26,11 @@ const completedHints = [
   "off-the-record",
   "frames not stored",
   "review before publish",
+  "connect the tutor panel",
+  "persist mastery, work map approval",
+  "persist approved frame clips",
+  "tutor agent",
+  "presidio on transcripts",
 ]
 
 const supersededHints = [
@@ -57,7 +62,7 @@ const isBlocked = (value, section, subsection) => {
   const context = `${section} ${subsection}`
   return (
     /needs you|blocked on credentials/i.test(context) ||
-    /credentials|api key|vision[- ]model choice|deployment protection|presidio analyzer|rotate.*key|node 22/i.test(
+    /credentials|\bkey\b|vision[- ]model choice|deployment protection|presidio|preview environment|live project|live supabase|deployed preview|rotate.*key|node 22/i.test(
       value
     )
   )
@@ -114,6 +119,9 @@ const unique = (items) => {
     }
     if (key.includes("vercel deployment protection")) {
       key = "vercel deployment protection"
+    }
+    if (key.includes("presidio") && key.includes("analyzer")) {
+      key = "configure presidio analyzer"
     }
     if (seen.has(key)) continue
     seen.add(key)

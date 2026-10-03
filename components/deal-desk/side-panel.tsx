@@ -25,6 +25,7 @@ export function SidePanel() {
     frames,
     capture,
     purgeStatus,
+    privacyWindows,
   } = useDealDesk()
 
   const capturing = capture.status === "active"
@@ -108,6 +109,25 @@ export function SidePanel() {
           {purgeStatus === "purged" ? "This segment was purged." : null}
           {purgeStatus === "error" ? "Purge needs a retry before publishing." : null}
           {purgeStatus === "idle" ? "This segment is redacted from the session." : null}
+        </div>
+      ) : null}
+
+      {privacyWindows.length > 0 ? (
+        <div className="border-b border-border bg-muted/40 px-3 py-2">
+          <p className="text-[10px] font-medium text-muted-foreground">
+            Off-record Work Map segments
+          </p>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {privacyWindows.slice(-3).map((window, index) => (
+              <span
+                key={`${window.from}-${window.to}-${index}`}
+                className="rounded bg-muted px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground line-through"
+                title={`${window.eventsRemoved} records and ${window.framesRemoved} frames removed`}
+              >
+                {window.from.toFixed(1)}–{window.to.toFixed(1)}s purged
+              </span>
+            ))}
+          </div>
         </div>
       ) : null}
 

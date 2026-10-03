@@ -167,6 +167,44 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 ---
 
+## [0.0.8] — 2026-10-04
+
+### Done (Phase 4 — Teach / Tutor implementation complete)
+
+- **Live Tutor bridge** — official `@elevenlabs/react` SDK, microphone controls, signed-session endpoint, dynamic session/case/mastery variables, and a clear missing-configuration state.
+- **Tutor client tools** — `get_screen_state`, `block_commit`, `replay_moment`, `update_mastery`, `lookup_guardrail`, `get_expert_moment`, and voice-controlled `set_off_record` are registered against live Deal Desk state.
+- **Work Map grounding** — guardrail and expert-moment lookups expose only the approved seeded Work Map; revoking expert approval ends the voice session and blocks Save.
+- **Persistent tutor state** — mastery and approval are stored through `/api/tutor/state`, with Supabase persistence and a memory fallback.
+- **Agent provisioning updated** — the Tutor prompt/tool set now includes Work Map lookup and off-record control.
+- **Acceptance tests** — correct Acme/Customer 3 values pass; the over-learned replacement mistake and recurring legal fee are blocked with expert evidence.
+
+### Deployment action required for Phase 4
+
+- [ ] Run `supabase/migrations/0002_phase_4_5.sql` on the live project.
+- [ ] Add the required Preview environment variables and run `npm run provision:agents` with the ElevenLabs key so the remote Tutor receives the three new tools.
+- [ ] Exercise one real microphone conversation on the deployed preview; local automated tests cannot authenticate without the team credentials.
+
+---
+
+## [0.0.9] — 2026-10-04
+
+### Done (Phase 5 — Trust & Privacy implementation complete)
+
+- **Transcript privacy boundary** — live Tutor messages are sent to `/api/privacy/transcripts`, redacted before storage, and rejected if a configured Presidio service fails.
+- **Presidio integration** — `/api/privacy/redact` and transcript storage call the Analyzer `/analyze` API when configured; the explicit regex fallback remains available for synthetic/local demos.
+- **Retention enforcement** — changed frames upload only when retention is enabled, the Work Map is approved, and the session is on-record.
+- **Window-accurate purge** — off-record removes events, redacted transcripts, and only frame objects whose timestamps fall in the requested window.
+- **Privacy evidence** — purge windows are persisted, audit actions are recorded, and the UI shows greyed/struck off-record timeline segments with removal counts.
+- **Automated privacy tests** — local PII redaction, transcript storage, retained-frame storage, and off-record deletion pass through the memory fallback.
+
+### Deployment action required for Phase 5
+
+- [ ] Provide `PRESIDIO_ANALYZER_URL` for the deployed Analyzer service before using real data.
+- [ ] Verify the new migration, storage bucket access, and off-record deletion against live Supabase.
+- [ ] Test microphone/screen-share permissions and the voice phrase “off the record” in Chrome on the demo laptop.
+
+---
+
 ## Next Steps (to finish the app)
 
 Ordered by the build priority in `ARCHITECTURE.md` §8. Each item lists concrete deliverables and a definition of done.

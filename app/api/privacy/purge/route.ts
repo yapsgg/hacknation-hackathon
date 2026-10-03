@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
 
 import { purgeMemoryEvents } from "@/app/api/events/route"
+import { purgeMemoryFrames } from "@/app/api/privacy/frames/route"
+import { purgeMemoryTranscripts } from "@/app/api/privacy/transcripts/route"
+import { recordAudit } from "@/lib/audit"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 
 export const runtime = "nodejs"
@@ -34,11 +37,14 @@ export async function POST(request: Request) {
 
   const supabase = getSupabaseAdmin()
   if (!supabase) {
+    const eventsRemoved =
+      purgeMemoryEvents(session_id, from, to) +
+      purgeMemoryTranscripts(session_id, from, to)
     return NextResponse.json({
       ok: true,
       store: "memory",
-      events_removed: purgeMemoryEvents(session_id, from, to),
-      frames_removed: 0,
+      events_removed: eventsRemoved,
+      frames_removed: purgeMemoryFrames(session_id, from, to),
     })
   }
 
@@ -59,7 +65,12 @@ export async function POST(request: Request) {
     if (listed.error) {
       return NextResponse.json({ error: listed.error.message }, { status: 500 })
     }
-    const names = (listed.data ?? []).map((item) => `${prefix}${item.name}`)
+    const names = (listed.data ?? [])
+      .filter((item) => {
+        const frameT = Number(item.name.split("-")[0])
+        return Number.isFinite(frameT) && frameT >= from && frameT <= to
+      })
+      .map((item) => `${prefix}${item.name}`)
     if (names.length > 0) {
       const removed = await supabase.storage.from(bucket).remove(names)
       if (removed.error) {
@@ -69,10 +80,30 @@ export async function POST(request: Request) {
     }
   }
 
+  const privacyWindow = await supabase.from("privacy_windows").insert({
+    session_id,
+    from_t: from,
+    to_t: to,
+    events_removed: Number(purged.data ?? 0),
+    frames_removed: framesRemoved,
+  })
+  const auditPersisted = await recordAudit(supabase, {
+    sessionId: session_id,
+    action: "off_record_purged",
+    metadata: {
+      from,
+      to,
+      events_removed: Number(purged.data ?? 0),
+      frames_removed: framesRemoved,
+    },
+  })
+
   return NextResponse.json({
     ok: true,
     store: "supabase",
     events_removed: Number(purged.data ?? 0),
     frames_removed: framesRemoved,
+    privacy_window_persisted: !privacyWindow.error,
+    audit_persisted: auditPersisted,
   })
 }
