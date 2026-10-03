@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { emitAppEvent } from "@/lib/event-bus"
+import { useDealDesk } from "@/components/deal-desk/session-provider"
 import { cn } from "cn"
 
 interface InputField {
@@ -62,6 +63,7 @@ const FIELDS: InputField[] = [
 ]
 
 export function LboInputSheet() {
+  const { interceptCommit } = useDealDesk()
   const [values, setValues] = React.useState<Record<string, string>>({})
   const committedRef = React.useRef<Record<string, number | null>>({})
   const [saveState, setSaveState] = React.useState<"idle" | "saved" | "blocked">(
@@ -101,14 +103,15 @@ export function LboInputSheet() {
   }
 
   const onSave = () => {
-    // Pre-commit interceptor stub. Phase 4 routes this through the tutor's
-    // block_commit tool; for now nothing blocks and we just record the save.
-    const interceptor = { blocked: false, reason: null as string | null }
+    const interceptor = interceptCommit(values)
     emitAppEvent({
       type: "save_clicked",
       object: "Deal Desk / Inputs",
       field: "Save",
-      salient_text: ["Save inputs to model"],
+      salient_text: [
+        "Save inputs to model",
+        interceptor.blocked ? "blocked by tutor" : "allowed by tutor",
+      ],
     })
     if (interceptor.blocked) {
       setSaveState("blocked")
@@ -174,10 +177,10 @@ export function LboInputSheet() {
           )}
         >
           {saveState === "saved"
-            ? "Inputs saved. (Pre-commit interceptor stub — no tutor check yet.)"
+            ? "Inputs saved. Tutor checks passed."
             : saveState === "blocked"
               ? (blockReason ?? "Commit blocked.")
-              : "Pre-commit interceptor stub is active."}
+              : "Tutor pre-commit checks are active."}
         </p>
       </div>
     </div>

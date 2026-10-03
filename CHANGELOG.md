@@ -98,14 +98,47 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 - [ ] ElevenAgents API key + interviewer/tutor agent IDs; vision-model key.
 - [ ] Vercel serverless can't hold WebSockets and the memory fallback isn't shared across instances; production must use Supabase.
 
+## [0.0.5] — 2026-10-04
+
+### Done (Phase 4/5 demo slice — feature branch)
+
+- **Tutor rules** — `lib/tutor.ts` implements the seeded PE guardrails, including the Customer 3 “in addition to” exception, recurring relocation/legal costs, and capex-below-average escalation.
+- **Pre-commit interceptor** — the LBO Save action now evaluates the Work Map rules, blocks unsafe commits, shows the reason, and links to the relevant expert moment.
+- **Expert replay fallback** — replay cards show the seeded decision, quote, frame id, and clip interval until real frame clips are available.
+- **Mastery checklist** — the Tutor panel tracks each rule as `unseen`, `hit`, or `missed`.
+- **Review before publish** — Tutor access can be revoked until the expert-reviewed Work Map is approved.
+- **Off-the-record purge** — the browser clears local events and frames, while `/api/privacy/purge` removes memory events or Supabase events and session-prefixed stored frames.
+- **Transcript privacy boundary** — `/api/privacy/redact` provides a conservative local fallback and reports its provider explicitly; a hosted Presidio Analyzer can be added later.
+
+### Still open for Phase 4/5
+
+- [ ] Connect the Tutor panel to the real ElevenAgents tutor session and client tools.
+- [ ] Replace the local redaction fallback with a configured Presidio Analyzer service before handling real deal data.
+- [ ] Persist mastery, Work Map approval, and review audit events to Supabase.
+- [ ] Persist approved frame clips only when the retention toggle permits it.
+
+## [0.0.6] — 2026-10-04
+
+### Done (orchestration foundation — feature branch)
+
+- **`TODO.md` generator** — `npm run todo` reconciles historical Done sections with legacy unchecked lists and produces one current work queue.
+- **Model-routing plan** — `scripts/orchestrate.mjs` assigns planner, implementer, fast-worker, and reviewer roles without executing model calls or file changes.
+- **Approval-first policy** — `orchestrator/roles.json` records model tiers, ownership boundaries, and gates for secrets, migrations, external writes, PRs, merges, and deployments.
+
+### Still open for orchestration
+
+- [ ] Add an executable Agents SDK adapter after the team approves credentials, tools, branch/worktree policy, and human approval flow.
+- [ ] Persist task runs, worker artifacts, test evidence, and reviewer decisions.
+- [ ] Add CI validation that rejects a task when its claimed files overlap another active task.
+
 ### Known gaps
 
-- Off-the-record currently suppresses new events but does not call `purge_window()` or delete stored frames yet.
+- Off-the-record now calls the privacy purge route; real frame persistence is still gated until the capture storage path is implemented.
 - Browser Realtime subscription (`getSupabaseBrowser`) is not wired into the UI yet.
 
 ---
 
-## [0.0.5] — 2026-10-04
+## [0.0.7] — 2026-10-04
 
 ### Done (Supabase live + ElevenAgents provisioned)
 
@@ -131,6 +164,63 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 - No voice widget / client-tool handlers in the Deal Desk yet; agents are not connected to the app.
 - Question Governor, vision loop, off-the-record purge and Realtime UI subscription still open (see below).
 - Supabase advisor notes: `public.rls_auto_enable()` is executable by `anon`/`authenticated` (Supabase-provided, not ours); `sessions`/`work_maps`/`mastery` have RLS with no policies on purpose (service role only).
+
+---
+
+## [0.0.8] — 2026-10-04
+
+### Done (Phase 4 — Teach / Tutor implementation complete)
+
+- **Live Tutor bridge** — official `@elevenlabs/react` SDK, microphone controls, signed-session endpoint, dynamic session/case/mastery variables, and a clear missing-configuration state.
+- **Tutor client tools** — `get_screen_state`, `block_commit`, `replay_moment`, `update_mastery`, `lookup_guardrail`, `get_expert_moment`, and voice-controlled `set_off_record` are registered against live Deal Desk state.
+- **Work Map grounding** — guardrail and expert-moment lookups expose only the approved seeded Work Map; revoking expert approval ends the voice session and blocks Save.
+- **Persistent tutor state** — mastery and approval are stored through `/api/tutor/state`, with Supabase persistence and a memory fallback.
+- **Agent provisioning updated** — the Tutor prompt/tool set now includes Work Map lookup and off-record control.
+- **Acceptance tests** — correct Acme/Customer 3 values pass; the over-learned replacement mistake and recurring legal fee are blocked with expert evidence.
+
+### Deployment action required for Phase 4
+
+- [ ] Run `supabase/migrations/0002_phase_4_5.sql` on the live project.
+- [ ] Add the required Preview environment variables and run `npm run provision:agents` with the ElevenLabs key so the remote Tutor receives the three new tools.
+- [ ] Exercise one real microphone conversation on the deployed preview; local automated tests cannot authenticate without the team credentials.
+
+---
+
+## [0.0.9] — 2026-10-04
+
+### Done (Phase 5 — Trust & Privacy implementation complete)
+
+- **Transcript privacy boundary** — live Tutor messages are sent to `/api/privacy/transcripts`, redacted before storage, and rejected if a configured Presidio service fails.
+- **Presidio integration** — `/api/privacy/redact` and transcript storage call the Analyzer `/analyze` API when configured; the explicit regex fallback remains available for synthetic/local demos.
+- **Retention enforcement** — changed frames upload only when retention is enabled, the Work Map is approved, and the session is on-record.
+- **Window-accurate purge** — off-record removes events, redacted transcripts, and only frame objects whose timestamps fall in the requested window.
+- **Privacy evidence** — purge windows are persisted, audit actions are recorded, and the UI shows greyed/struck off-record timeline segments with removal counts.
+- **Automated privacy tests** — local PII redaction, transcript storage, retained-frame storage, and off-record deletion pass through the memory fallback.
+
+### Deployment action required for Phase 5
+
+- [ ] Provide `PRESIDIO_ANALYZER_URL` for the deployed Analyzer service before using real data.
+- [ ] Verify the new migration, storage bucket access, and off-record deletion against live Supabase.
+- [ ] Test microphone/screen-share permissions and the voice phrase “off the record” in Chrome on the demo laptop.
+
+---
+
+## [0.0.10] — 2026-10-04
+
+### Done (Phase 5 closeout hardening)
+
+- **Retention is server-authorized** — frame uploads are rejected unless the session has explicitly enabled retention; a stale browser request can no longer turn retention back on.
+- **Disable means delete** — switching to “frames not retained” first disables future uploads and then removes all stored frames for that session, including paginated Supabase objects.
+- **Safer Presidio spans** — overlapping analyzer findings are merged before replacement so nested findings cannot corrupt offsets or leak part of a detected value.
+- **Readiness visibility** — `/api/privacy/status` reports Supabase/Presidio readiness without returning secrets, and the Deal Desk clearly labels synthetic-only mode.
+- **Operational closeout** — `PHASE5_CLOSEOUT.md` records the exact environment, migration, and live acceptance steps. Node `>=22.22.0` is now declared.
+- **Expanded privacy tests** — retention deletion, stale-upload rejection, overlapping Presidio findings, fail-closed transcript storage, and no-secret readiness reporting are covered.
+
+### Still requires deployed infrastructure
+
+- [ ] Apply `supabase/migrations/0002_phase_4_5.sql` to the live Supabase project.
+- [ ] Configure a reachable `PRESIDIO_ANALYZER_URL` in Vercel before any real data is used.
+- [ ] Run the live acceptance script in `PHASE5_CLOSEOUT.md` with Chrome microphone and screen-share permissions.
 
 ---
 

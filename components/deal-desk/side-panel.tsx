@@ -1,21 +1,23 @@
 "use client"
 
-import {
-  EyeOff,
-  Mic,
-  MonitorPlay,
-  ShieldCheck,
-  Square,
-} from "lucide-react"
+import * as React from "react"
+import { EyeOff, Mic, MonitorPlay, ShieldCheck, Square } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { EventFeed } from "@/components/deal-desk/event-feed"
+import { TutorPanel } from "@/components/deal-desk/tutor-panel"
 import { useDealDesk } from "@/components/deal-desk/session-provider"
 import { cn } from "cn"
 
 export function SidePanel() {
+  const [privacyStatus, setPrivacyStatus] = React.useState<{
+    privacy_ready: boolean
+    persistence: "memory" | "supabase"
+    redaction: "local-fallback" | "presidio"
+    missing: string[]
+  } | null>(null)
   const {
     offRecord,
     setOffRecord,
@@ -23,9 +25,21 @@ export function SidePanel() {
     setFramesNotStored,
     frames,
     capture,
+    purgeStatus,
+    privacyWindows,
   } = useDealDesk()
 
   const capturing = capture.status === "active"
+
+  React.useEffect(() => {
+    void fetch("/api/privacy/status", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Privacy status unavailable")
+        return response.json()
+      })
+      .then(setPrivacyStatus)
+      .catch(() => setPrivacyStatus(null))
+  }, [])
 
   return (
     <div className="flex h-full flex-col">
@@ -38,13 +52,20 @@ export function SidePanel() {
           variant={capturing && !offRecord ? "default" : "secondary"}
           className="font-normal"
         >
-          {offRecord
-            ? "off the record"
-            : capturing
-              ? "capturing"
-              : "idle"}
+          {offRecord ? "off the record" : capturing ? "capturing" : "idle"}
         </Badge>
       </div>
+
+      {privacyStatus && !privacyStatus.privacy_ready ? (
+        <div className="border-b border-amber-300/40 bg-amber-100/60 px-3 py-2 text-[10px] text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+          Synthetic demo mode: {privacyStatus.missing.join(" and ")} missing. Do
+          not use real deal data.
+        </div>
+      ) : privacyStatus?.privacy_ready ? (
+        <div className="border-b border-emerald-300/40 bg-emerald-100/50 px-3 py-1.5 text-[10px] text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100">
+          Privacy services ready: Presidio redaction + Supabase persistence.
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-2 border-b border-border p-3">
         <div className="flex gap-2">
@@ -102,10 +123,38 @@ export function SidePanel() {
 
       {offRecord ? (
         <div className="border-b border-border bg-destructive/10 px-3 py-2 text-[11px] text-destructive">
-          Capture paused. This segment is purged and will appear as a redacted
-          block in the Work Map.
+          Capture paused.{" "}
+          {purgeStatus === "purging" ? "Purging this segment…" : null}
+          {purgeStatus === "purged" ? "This segment was purged." : null}
+          {purgeStatus === "error"
+            ? "Purge needs a retry before publishing."
+            : null}
+          {purgeStatus === "idle"
+            ? "This segment is redacted from the session."
+            : null}
         </div>
       ) : null}
+
+      {privacyWindows.length > 0 ? (
+        <div className="border-b border-border bg-muted/40 px-3 py-2">
+          <p className="text-[10px] font-medium text-muted-foreground">
+            Off-record Work Map segments
+          </p>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {privacyWindows.slice(-3).map((window, index) => (
+              <span
+                key={`${window.from}-${window.to}-${index}`}
+                className="rounded bg-muted px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground line-through"
+                title={`${window.eventsRemoved} records and ${window.framesRemoved} frames removed`}
+              >
+                {window.from.toFixed(1)}–{window.to.toFixed(1)}s purged
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <TutorPanel />
 
       <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
         <span className="text-[11px] font-medium text-muted-foreground">

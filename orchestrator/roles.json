@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "mode": "approval-first",
+  "roles": {
+    "planner": {
+      "model": "gpt-6.1-sol",
+      "reasoning": "high",
+      "purpose": "Decompose complex work, choose file ownership, identify dependencies and risks."
+    },
+    "implementer": {
+      "model": "gpt-6.1-sol",
+      "reasoning": "medium",
+      "purpose": "Implement a bounded feature on an isolated branch and run its checks."
+    },
+    "fast-worker": {
+      "model": "gpt-6-luna",
+      "reasoning": "low",
+      "purpose": "Handle narrow edits, documentation, formatting, fixture updates, and focused tests."
+    },
+    "reviewer": {
+      "model": "gpt-6.1-sol",
+      "reasoning": "high",
+      "purpose": "Review diffs, security boundaries, integration risk, tests, and release readiness."
+    }
+  },
+  "approvalGates": [
+    "Writing outside the repository",
+    "Installing or executing untrusted code",
+    "Changing credentials or environment secrets",
+    "Database migrations or destructive data operations",
+    "Pushing branches, opening PRs, merging, or deploying"
+  ],
+  "routing": {
+    "complexKeywords": [
+      "architecture",
+      "integration",
+      "migration",
+      "security",
+      "conflict",
+      "production",
+      "elevenagents",
+      "presidio",
+      "supabase"
+    ],
+    "smallKeywords": [
+      "todo",
+      "changelog",
+      "documentation",
+      "format",
+      "lint",
+      "fixture",
+      "test"
+    ]
+  }
+}

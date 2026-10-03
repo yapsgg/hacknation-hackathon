@@ -53,6 +53,13 @@ export function setPaused(value: boolean): void {
   paused = value
 }
 
+export function purgeEvents(from: number, to: number): number {
+  const before = events.length
+  events = events.filter((event) => event.t < from || event.t > to)
+  if (events.length !== before) notify()
+  return before - events.length
+}
+
 export function isPaused(): boolean {
   return paused
 }
