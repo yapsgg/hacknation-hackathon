@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "seed": "node --env-file=.env.local scripts/seed.mjs",
     "todo": "node scripts/generate-todo.mjs",
-    "orchestrate": "node scripts/orchestrate.mjs"
+    "orchestrate": "node scripts/orchestrate.mjs",
+    "provision:agents": "node --env-file=.env.local scripts/provision-agents.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

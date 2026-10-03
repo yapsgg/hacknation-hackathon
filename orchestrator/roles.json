@@ -3,7 +3,7 @@
   "mode": "approval-first",
   "roles": {
     "planner": {
-      "model": "gpt-6-astra",
+      "model": "gpt-6.1-sol",
       "reasoning": "high",
       "purpose": "Decompose complex work, choose file ownership, identify dependencies and risks."
     },
@@ -18,7 +18,7 @@
       "purpose": "Handle narrow edits, documentation, formatting, fixture updates, and focused tests."
     },
     "reviewer": {
-      "model": "gpt-6-astra",
+      "model": "gpt-6.1-sol",
       "reasoning": "high",
       "purpose": "Review diffs, security boundaries, integration risk, tests, and release readiness."
     }

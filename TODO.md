@@ -45,6 +45,11 @@ The generator reconciles old unchecked checklist items against later Done sectio
 - [x] **`TODO.md` generator** — `npm run todo` reconciles historical Done sections with legacy unchecked lists and produces one current work queue. _(source: [0.0.6] — 2026-10-04 / Done (orchestration foundation — feature branch))_
 - [x] **Model-routing plan** — `scripts/orchestrate.mjs` assigns planner, implementer, fast-worker, and reviewer roles without executing model calls or file changes. _(source: [0.0.6] — 2026-10-04 / Done (orchestration foundation — feature branch))_
 - [x] **Approval-first policy** — `orchestrator/roles.json` records model tiers, ownership boundaries, and gates for secrets, migrations, external writes, PRs, merges, and deployments. _(source: [0.0.6] — 2026-10-04 / Done (orchestration foundation — feature branch))_
+- [x] **Supabase connected** — project `eivlugijbvxtdbmnswjq`. Schema from `0001_init.sql` verified in place via the Supabase MCP (6 tables, RLS, Realtime on `events`/`questions`/`gaps`, private `frames` bucket, `purge_window`). `npm run seed` loaded the 7-step Work Map into `work_maps`. _(source: [0.0.7] — 2026-10-04 / Done (Supabase live + ElevenAgents provisioned))_
+- [x] **Persistence verified end to end** — `POST /api/events` returned `store: "supabase"` locally and on the production deploy; rows landed in `sessions`/`events` (test rows deleted afterwards). _(source: [0.0.7] — 2026-10-04 / Done (Supabase live + ElevenAgents provisioned))_
+- [x] **Env** — `.env.local` (git-ignored) holds the Supabase URL/keys and the ElevenLabs key + agent ids. Supabase URL/anon key, service-role key, ElevenLabs key and both agent ids were added to Vercel (Production; Supabase vars also in Development). Preview environment was not set. _(source: [0.0.7] — 2026-10-04 / Done (Supabase live + ElevenAgents provisioned))_
+- [x] **Production redeployed** to https://agent-nine-lake.vercel.app with the Supabase env. _(source: [0.0.7] — 2026-10-04 / Done (Supabase live + ElevenAgents provisioned))_
+- [x] **`scripts/provision-agents.mjs`** + **`npm run provision:agents`** — creates/updates the ElevenAgents client tools and both agents via the API. Idempotent: tools matched by name, agents patched when an id is already in `.env.local`. _(source: [0.0.7] — 2026-10-04 / Done (Supabase live + ElevenAgents provisioned))_
 - [x] **Define shared schemas** — create `/schemas/` with `event.schema.json` and `work-map.schema.json` exactly as specified in `ARCHITECTURE.md` §2–3. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
 - [x] **Client tool contract** — agree on names and signatures: `get_screen_state`, `log_question`, `mark_gap`, `start_debrief`, `submit_teachback_result`, `block_commit`, `replay_moment`, `update_mastery`, `lookup_guardrail`, `get_expert_moment`. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
 - [x] **Mock event stream** — `fixtures/events.mock.json` so each engineer can develop independently. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
@@ -67,45 +72,42 @@ The generator reconciles old unchecked checklist items against later Done sectio
 
 - [ ] Lock the exact demo script (dialog-level). _(source: [0.0.2] — 2026-10-04 / Still open in Phase 0)_
 - [ ] Validate fixtures against the schemas in CI (needs an ajv 8 dev dependency or a script). _(source: [0.0.2] — 2026-10-04 / Still open in Phase 0)_
+- [ ] Connect the Tutor panel to the real ElevenAgents tutor session and client tools. _(source: [0.0.5] — 2026-10-04 / Still open for Phase 4/5)_
+- [ ] Persist mastery, Work Map approval, and review audit events to Supabase. _(source: [0.0.5] — 2026-10-04 / Still open for Phase 4/5)_
 - [ ] Persist approved frame clips only when the retention toggle permits it. _(source: [0.0.5] — 2026-10-04 / Still open for Phase 4/5)_
 - [ ] Persist task runs, worker artifacts, test evidence, and reviewer decisions. _(source: [0.0.6] — 2026-10-04 / Still open for orchestration)_
 - [ ] Add CI validation that rejects a task when its claimed files overlap another active task. _(source: [0.0.6] — 2026-10-04 / Still open for orchestration)_
+- [ ] **ElevenAgents interviewer** — create agent, set voice + Expressive Mode, write the interviewer system prompt (`ARCHITECTURE.md` §6), get a bare-page voice conversation working. _(source: Next Steps (to finish the app) / Phase 2 — Capture intelligence (0:30–2:30, Engineer A))_
 - [ ] **Vision loop** — send previous-state summary + new frame to the vision model with structured output matching the event schema; extract `salient_text`. _(source: Next Steps (to finish the app) / Phase 2 — Capture intelligence (0:30–2:30, Engineer A))_
 - [ ] **Context pusher** — push a compact rolling summary to the agent as non-interrupting contextual updates. _(source: Next Steps (to finish the app) / Phase 2 — Capture intelligence (0:30–2:30, Engineer A))_
 - [ ] **`get_screen_state()` client tool** — lets the agent pull the latest state before asking. _(source: Next Steps (to finish the app) / Phase 2 — Capture intelligence (0:30–2:30, Engineer A))_
 - [ ] **Question Governor** — deterministic pause gate (2 s silence + no typing 1.5 s + 45 s cooldown + trigger event), plus question scoring and forced guardrail coverage. _(source: Next Steps (to finish the app) / Phase 2 — Capture intelligence (0:30–2:30, Engineer A))_
+- [ ] **Event normalizer + session store** — persist `sessions` and `events` to Supabase; stream via Supabase Realtime. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
 - [ ] **Gap Ledger** — track open/unanswered questions per step. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
 - [ ] **Work Map builder** — LLM merges events + transcript + answers into the Work Map JSON; each step carries `t`, `quote`, `judgment_call`, `status`. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
 - [ ] **Debrief controller** — gap analysis, ≥3 risk-prioritized follow-ups, teach-back, correction diff, done criteria. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
 - [ ] **Work Map UI** (Engineer B) — clickable timeline, per-step screen moment, reason quote, guardrails; teach-back checklist the expert ticks. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
+- [ ] **Tutor agent** — second ElevenAgents agent; Work Map JSON in knowledge base; `lookup_guardrail` client tool reading the guardrail list. _(source: Next Steps (to finish the app) / Phase 4 — Teach / Tutor (3:30–4:30))_
+- [ ] **Presidio on transcripts** — redact PII before storage. _(source: Next Steps (to finish the app) / Phase 5 — Trust & Privacy (4:30–5:15))_
 - [ ] **Pre-bake the Work Map** — run one full session, save JSON, add a "load saved map" button so Teach never depends on a live build. _(source: Next Steps (to finish the app) / Phase 6 — Polish, Export & Rehearsal (4:30–6:00))_
 - [ ] **Recorded fallback session** — for wifi/mic failure at demo time. _(source: Next Steps (to finish the app) / Phase 6 — Polish, Export & Rehearsal (4:30–6:00))_
 - [ ] **Pitch deck** — 5 slides incl. moonshot + the five Apprentice Test answers on one slide. _(source: Next Steps (to finish the app) / Phase 6 — Polish, Export & Rehearsal (4:30–6:00))_
+- [ ] **Deploy checklist** — Supabase + Vercel env vars, seed script, production deploy freeze, final dry-runs (see `ARCHITECTURE.md` Deploy Checklist). _(source: Next Steps (to finish the app) / Phase 6 — Polish, Export & Rehearsal (4:30–6:00))_
 - [ ] **Dry-run twice on the production URL** + record backup video. _(source: Next Steps (to finish the app) / Phase 6 — Polish, Export & Rehearsal (4:30–6:00))_
 - [ ] **Stretch (drop first if time slips):** German expert session with English tutor; Work Map export to a stop-and-escalate instruction file (JSON/MD). _(source: Next Steps (to finish the app) / Phase 6 — Polish, Export & Rehearsal (4:30–6:00))_
+- [ ] Exact ElevenAgents SDK + client-tool method names (verify against quickstart). _(source: Open Risks / Verify in the First Hour / )_
+- [ ] Vercel function duration and request body-size limits. _(source: Open Risks / Verify in the First Hour / )_
+- [ ] Supabase free-tier limits (Realtime connections, storage). _(source: Open Risks / Verify in the First Hour / )_
 - [ ] Vision-model latency during live screen share. _(source: Open Risks / Verify in the First Hour / )_
 - [ ] Mic + screen share on the actual demo laptop/browser (Chrome). _(source: Open Risks / Verify in the First Hour / )_
 
 ## Blocked or credential-dependent
 
-- [ ] Create the Supabase project, run `supabase/migrations/0001_init.sql` in the SQL Editor, fill `.env.local`, run `npm run seed`. The Supabase path is **untested** against a real project. _(source: [0.0.4] — 2026-10-04 / Needs you (blocked on credentials))_
-- [ ] Add the same env vars in Vercel (Project Settings -> Environment Variables). _(source: [0.0.4] — 2026-10-04 / Needs you (blocked on credentials))_
 - [ ] Decide on Vercel **Deployment Protection**: it is ON, so the URL needs a Vercel login. Turn it off (or add a bypass) before the demo/judging. _(source: [0.0.4] — 2026-10-04 / Needs you (blocked on credentials))_
-- [ ] ElevenAgents API key + interviewer/tutor agent IDs; vision-model key. _(source: [0.0.4] — 2026-10-04 / Needs you (blocked on credentials))_
-- [ ] Vercel serverless can't hold WebSockets and the memory fallback isn't shared across instances; production must use Supabase. _(source: [0.0.4] — 2026-10-04 / Needs you (blocked on credentials))_
-- [ ] Connect the Tutor panel to the real ElevenAgents tutor session and client tools. _(source: [0.0.5] — 2026-10-04 / Still open for Phase 4/5)_
 - [ ] Replace the local redaction fallback with a configured Presidio Analyzer service before handling real deal data. _(source: [0.0.5] — 2026-10-04 / Still open for Phase 4/5)_
-- [ ] Persist mastery, Work Map approval, and review audit events to Supabase. _(source: [0.0.5] — 2026-10-04 / Still open for Phase 4/5)_
 - [ ] Add an executable Agents SDK adapter after the team approves credentials, tools, branch/worktree policy, and human approval flow. _(source: [0.0.6] — 2026-10-04 / Still open for orchestration)_
-- [ ] **Environment + accounts** — Supabase project, Vercel project, ElevenLabs/ElevenAgents key, vision-model API key. Add `.env.local` (git-ignored) and an `.env.example`. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
-- [ ] **ElevenAgents interviewer** — create agent, set voice + Expressive Mode, write the interviewer system prompt (`ARCHITECTURE.md` §6), get a bare-page voice conversation working. _(source: Next Steps (to finish the app) / Phase 2 — Capture intelligence (0:30–2:30, Engineer A))_
-- [ ] **Event normalizer + session store** — persist `sessions` and `events` to Supabase; stream via Supabase Realtime. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
-- [ ] **Tutor agent** — second ElevenAgents agent; Work Map JSON in knowledge base; `lookup_guardrail` client tool reading the guardrail list. _(source: Next Steps (to finish the app) / Phase 4 — Teach / Tutor (3:30–4:30))_
-- [ ] **Presidio on transcripts** — redact PII before storage. _(source: Next Steps (to finish the app) / Phase 5 — Trust & Privacy (4:30–5:15))_
-- [ ] **Deploy checklist** — Supabase + Vercel env vars, seed script, production deploy freeze, final dry-runs (see `ARCHITECTURE.md` Deploy Checklist). _(source: Next Steps (to finish the app) / Phase 6 — Polish, Export & Rehearsal (4:30–6:00))_
-- [ ] Exact ElevenAgents SDK + client-tool method names (verify against quickstart). _(source: Open Risks / Verify in the First Hour / )_
-- [ ] Vercel function duration and request body-size limits. _(source: Open Risks / Verify in the First Hour / )_
-- [ ] Supabase free-tier limits (Realtime connections, storage). _(source: Open Risks / Verify in the First Hour / )_
+- [ ] Vision model choice + key (recommendation: Gemini Flash). _(source: [0.0.7] — 2026-10-04 / Needs you)_
+- [ ] **Rotate** the Supabase service-role key and the ElevenLabs key after the hackathon (both were shared in chat). _(source: [0.0.7] — 2026-10-04 / Needs you)_
 
 ## Recommended execution order
 
@@ -118,7 +120,7 @@ The generator reconciles old unchecked checklist items against later Done sectio
 
 ## Orchestrator assignments
 
-- **Planner/reviewer — Astra/high:** architecture, integrations, security, conflict resolution, final review.
+- **Planner/reviewer — Sol/high:** architecture, integrations, security, conflict resolution, final review.
 - **Implementer — Sol/medium:** one bounded feature per branch/worktree.
 - **Fast worker — Luna/low:** docs, fixtures, TODO maintenance, formatting, and focused tests.
 - **Human approval required:** secrets, migrations, external writes, branch pushes, PRs, merges, and deploys.

@@ -7,12 +7,12 @@ delegate before an executable agent runner is added.
 
 ## Roles
 
-- **Planner/reviewer**: strongest model. Owns decomposition, architecture,
+- **Planner/reviewer (Sol/high)**: primary model. Owns decomposition, architecture,
   cross-file integration, security review, merge-conflict analysis, and final
   acceptance.
-- **Implementer**: balanced model. Owns one bounded feature on one isolated
+- **Implementer (Sol/medium)**: owns one bounded feature on one isolated
   branch/worktree and must run the checks listed in its task.
-- **Fast worker**: low-cost model. Owns narrow documentation, fixture, test,
+- **Fast worker (Luna/low)**: low-cost model for narrow documentation, fixture, test,
   formatting, and TODO updates.
 
 The manager should remain responsible for the final plan and review. Specialists
