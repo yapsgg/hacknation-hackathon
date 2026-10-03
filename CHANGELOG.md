@@ -205,6 +205,25 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 ---
 
+## [0.0.10] — 2026-10-04
+
+### Done (Phase 5 closeout hardening)
+
+- **Retention is server-authorized** — frame uploads are rejected unless the session has explicitly enabled retention; a stale browser request can no longer turn retention back on.
+- **Disable means delete** — switching to “frames not retained” first disables future uploads and then removes all stored frames for that session, including paginated Supabase objects.
+- **Safer Presidio spans** — overlapping analyzer findings are merged before replacement so nested findings cannot corrupt offsets or leak part of a detected value.
+- **Readiness visibility** — `/api/privacy/status` reports Supabase/Presidio readiness without returning secrets, and the Deal Desk clearly labels synthetic-only mode.
+- **Operational closeout** — `PHASE5_CLOSEOUT.md` records the exact environment, migration, and live acceptance steps. Node `>=22.22.0` is now declared.
+- **Expanded privacy tests** — retention deletion, stale-upload rejection, overlapping Presidio findings, fail-closed transcript storage, and no-secret readiness reporting are covered.
+
+### Still requires deployed infrastructure
+
+- [ ] Apply `supabase/migrations/0002_phase_4_5.sql` to the live Supabase project.
+- [ ] Configure a reachable `PRESIDIO_ANALYZER_URL` in Vercel before any real data is used.
+- [ ] Run the live acceptance script in `PHASE5_CLOSEOUT.md` with Chrome microphone and screen-share permissions.
+
+---
+
 ## Next Steps (to finish the app)
 
 Ordered by the build priority in `ARCHITECTURE.md` §8. Each item lists concrete deliverables and a definition of done.

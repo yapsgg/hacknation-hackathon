@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server"
 
 import { purgeMemoryEvents } from "@/app/api/events/route"
-import { purgeMemoryFrames } from "@/app/api/privacy/frames/route"
 import { purgeMemoryTranscripts } from "@/app/api/privacy/transcripts/route"
 import { recordAudit } from "@/lib/audit"
+import { purgeMemoryFrames, purgeSupabaseFrames } from "@/lib/frame-storage"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 
 export const runtime = "nodejs"
@@ -44,6 +44,7 @@ export async function POST(request: Request) {
       ok: true,
       store: "memory",
       events_removed: eventsRemoved,
+      records_removed: eventsRemoved,
       frames_removed: purgeMemoryFrames(session_id, from, to),
     })
   }
@@ -58,26 +59,13 @@ export async function POST(request: Request) {
   }
 
   let framesRemoved = 0
-  const bucket = process.env.SUPABASE_FRAMES_BUCKET
-  if (bucket) {
-    const prefix = `${session_id}/`
-    const listed = await supabase.storage.from(bucket).list(prefix, { limit: 1000 })
-    if (listed.error) {
-      return NextResponse.json({ error: listed.error.message }, { status: 500 })
-    }
-    const names = (listed.data ?? [])
-      .filter((item) => {
-        const frameT = Number(item.name.split("-")[0])
-        return Number.isFinite(frameT) && frameT >= from && frameT <= to
-      })
-      .map((item) => `${prefix}${item.name}`)
-    if (names.length > 0) {
-      const removed = await supabase.storage.from(bucket).remove(names)
-      if (removed.error) {
-        return NextResponse.json({ error: removed.error.message }, { status: 500 })
-      }
-      framesRemoved = names.length
-    }
+  try {
+    framesRemoved = await purgeSupabaseFrames(supabase, session_id, from, to)
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Frame purge failed" },
+      { status: 500 }
+    )
   }
 
   const privacyWindow = await supabase.from("privacy_windows").insert({
@@ -102,6 +90,7 @@ export async function POST(request: Request) {
     ok: true,
     store: "supabase",
     events_removed: Number(purged.data ?? 0),
+    records_removed: Number(purged.data ?? 0),
     frames_removed: framesRemoved,
     privacy_window_persisted: !privacyWindow.error,
     audit_persisted: auditPersisted,
