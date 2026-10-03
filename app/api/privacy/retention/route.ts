@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server"
 
 import { recordAudit } from "@/lib/audit"
+import {
+  purgeMemoryFrames,
+  purgeSupabaseFrames,
+  setMemoryFrameRetention,
+} from "@/lib/frame-storage"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 
 export const runtime = "nodejs"
@@ -21,12 +26,22 @@ export async function PATCH(request: Request) {
     !UUID_RE.test(session_id) ||
     typeof retained !== "boolean"
   ) {
-    return NextResponse.json({ error: "Invalid retention update" }, { status: 422 })
+    return NextResponse.json(
+      { error: "Invalid retention update" },
+      { status: 422 }
+    )
   }
 
   const supabase = getSupabaseAdmin()
   if (!supabase) {
-    return NextResponse.json({ ok: true, store: "memory", retained })
+    setMemoryFrameRetention(session_id, retained)
+    const framesRemoved = retained ? 0 : purgeMemoryFrames(session_id)
+    return NextResponse.json({
+      ok: true,
+      store: "memory",
+      retained,
+      frames_removed: framesRemoved,
+    })
   }
   const updated = await supabase
     .from("sessions")
@@ -37,10 +52,31 @@ export async function PATCH(request: Request) {
   if (updated.error) {
     return NextResponse.json({ error: updated.error.message }, { status: 500 })
   }
+  let framesRemoved = 0
+  if (!retained) {
+    try {
+      framesRemoved = await purgeSupabaseFrames(supabase, session_id)
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error: error instanceof Error ? error.message : "Frame purge failed",
+          retention_disabled: true,
+          purge_pending: true,
+        },
+        { status: 500 }
+      )
+    }
+  }
   const auditPersisted = await recordAudit(supabase, {
     sessionId: session_id,
     action: "frame_retention_changed",
-    metadata: { retained },
+    metadata: { retained, frames_removed: framesRemoved },
   })
-  return NextResponse.json({ ok: true, store: "supabase", retained, auditPersisted })
+  return NextResponse.json({
+    ok: true,
+    store: "supabase",
+    retained,
+    frames_removed: framesRemoved,
+    audit_persisted: auditPersisted,
+  })
 }

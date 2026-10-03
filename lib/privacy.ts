@@ -32,6 +32,50 @@ interface PresidioFinding {
   score?: unknown
 }
 
+interface RedactionSpan {
+  start: number
+  end: number
+  entities: Set<string>
+}
+
+function mergeFindings(
+  text: string,
+  payload: PresidioFinding[]
+): RedactionSpan[] {
+  const valid = payload
+    .filter(
+      (item) =>
+        typeof item.start === "number" &&
+        typeof item.end === "number" &&
+        typeof item.entity_type === "string" &&
+        item.start >= 0 &&
+        item.end > item.start &&
+        item.end <= text.length
+    )
+    .map((item) => ({
+      start: item.start as number,
+      end: item.end as number,
+      entity: (item.entity_type as string).replace(/[^A-Z0-9_]/gi, "_"),
+    }))
+    .sort((a, b) => a.start - b.start || b.end - a.end)
+
+  const spans: RedactionSpan[] = []
+  for (const finding of valid) {
+    const previous = spans.at(-1)
+    if (previous && finding.start <= previous.end) {
+      previous.end = Math.max(previous.end, finding.end)
+      previous.entities.add(finding.entity)
+      continue
+    }
+    spans.push({
+      start: finding.start,
+      end: finding.end,
+      entities: new Set([finding.entity]),
+    })
+  }
+  return spans
+}
+
 export async function redactTranscript(text: string): Promise<RedactionResult> {
   const baseUrl = process.env.PRESIDIO_ANALYZER_URL?.trim()
   if (!baseUrl) return redactLocally(text)
@@ -47,24 +91,12 @@ export async function redactTranscript(text: string): Promise<RedactionResult> {
   }
 
   const payload = (await response.json()) as PresidioFinding[]
-  const findings = (Array.isArray(payload) ? payload : [])
-    .filter(
-      (item) =>
-        typeof item.start === "number" &&
-        typeof item.end === "number" &&
-        typeof item.entity_type === "string" &&
-        item.start >= 0 &&
-        item.end > item.start &&
-        item.end <= text.length
-    )
-    .sort((a, b) => (b.start as number) - (a.start as number))
+  const findings = mergeFindings(text, Array.isArray(payload) ? payload : [])
 
   let output = text
-  for (const finding of findings) {
-    const start = finding.start as number
-    const end = finding.end as number
-    const entity = (finding.entity_type as string).replace(/[^A-Z0-9_]/gi, "_")
-    output = `${output.slice(0, start)}[REDACTED_${entity}]${output.slice(end)}`
+  for (const finding of [...findings].reverse()) {
+    const entity = [...finding.entities].sort().join("_")
+    output = `${output.slice(0, finding.start)}[REDACTED_${entity}]${output.slice(finding.end)}`
   }
   return { text: output, redactions: findings.length, provider: "presidio" }
 }

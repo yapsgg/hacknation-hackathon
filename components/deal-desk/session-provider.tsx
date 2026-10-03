@@ -2,7 +2,10 @@
 
 import * as React from "react"
 
-import { useScreenCapture, type CapturedFrame } from "@/hooks/use-screen-capture"
+import {
+  useScreenCapture,
+  type CapturedFrame,
+} from "@/hooks/use-screen-capture"
 import {
   emitAppEvent,
   elapsedSeconds,
@@ -71,6 +74,13 @@ async function patchTutorState(body: Record<string, unknown>) {
     body: JSON.stringify({ session_id: getSessionId(), ...body }),
   })
   if (!response.ok) throw new Error("Tutor state persistence failed")
+  const result = (await response.json()) as {
+    store?: string
+    auditPersisted?: boolean
+  }
+  if (result.store === "supabase" && result.auditPersisted === false) {
+    throw new Error("Tutor state saved without its audit record")
+  }
 }
 
 export function DealDeskProvider({ children }: { children: React.ReactNode }) {
@@ -78,27 +88,31 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
   const [framesNotStored, setFramesNotStoredState] = React.useState(true)
   const [currentDocId, setCurrentDocId] = React.useState<string | null>(null)
   const [frames, setFrames] = React.useState<CapturedFrame[]>([])
-  const [mastery, setMastery] = React.useState<Record<string, MasteryState>>(
-    INITIAL_MASTERY
-  )
+  const [mastery, setMastery] =
+    React.useState<Record<string, MasteryState>>(INITIAL_MASTERY)
   const [activeBlock, setActiveBlock] = React.useState<{
     reason: string
     stepId: number
     ruleId: string | null
   } | null>(null)
-  const [activeReplay, setActiveReplay] = React.useState<ExpertMoment | null>(null)
+  const [activeReplay, setActiveReplay] = React.useState<ExpertMoment | null>(
+    null
+  )
   const [workMapApproved, setWorkMapApprovedState] = React.useState(true)
   const [purgeStatus, setPurgeStatus] = React.useState<
     "idle" | "purging" | "purged" | "error"
   >("idle")
-  const [privacyWindows, setPrivacyWindows] = React.useState<PrivacyWindow[]>([])
-  const [syncStatus, setSyncStatus] = React.useState<"loading" | "ready" | "error">(
-    "loading"
+  const [privacyWindows, setPrivacyWindows] = React.useState<PrivacyWindow[]>(
+    []
   )
+  const [syncStatus, setSyncStatus] = React.useState<
+    "loading" | "ready" | "error"
+  >("loading")
 
   const offRecordFromRef = React.useRef<number | null>(null)
   const offRecordRef = React.useRef(false)
   const framesNotStoredRef = React.useRef(true)
+  const frameRetentionReadyRef = React.useRef(false)
   const workMapApprovedRef = React.useRef(true)
 
   React.useEffect(() => {
@@ -123,17 +137,21 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
       .catch(() => setSyncStatus("error"))
   }, [])
 
-  const updateMastery = React.useCallback((ruleId: string, state: MasteryState) => {
-    if (!TUTOR_RULES.some((rule) => rule.id === ruleId)) return
-    setMastery((current) => ({ ...current, [ruleId]: state }))
-    void patchTutorState({ action: "mastery", rule_id: ruleId, state }).catch(() =>
-      setSyncStatus("error")
-    )
-  }, [])
+  const updateMastery = React.useCallback(
+    (ruleId: string, state: MasteryState) => {
+      if (!TUTOR_RULES.some((rule) => rule.id === ruleId)) return
+      setMastery((current) => ({ ...current, [ruleId]: state }))
+      void patchTutorState({ action: "mastery", rule_id: ruleId, state }).catch(
+        () => setSyncStatus("error")
+      )
+    },
+    []
+  )
 
   const handleFrame = React.useCallback((frame: CapturedFrame) => {
     if (
       framesNotStoredRef.current ||
+      !frameRetentionReadyRef.current ||
       offRecordRef.current ||
       !workMapApprovedRef.current
     ) {
@@ -151,7 +169,13 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
         t: normalized.t,
         data_url: normalized.dataUrl,
       }),
-    }).catch(() => setSyncStatus("error"))
+    })
+      .then((response) => {
+        if (!response.ok && response.status !== 409) {
+          throw new Error("Frame storage failed")
+        }
+      })
+      .catch(() => setSyncStatus("error"))
   }, [])
 
   const capture = useScreenCapture({ fps: 1, onFrame: handleFrame })
@@ -166,6 +190,7 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
     if (!response.ok) throw new Error("Privacy purge failed")
     const result = (await response.json()) as {
       events_removed?: number
+      records_removed?: number
       frames_removed?: number
     }
     setPrivacyWindows((current) => [
@@ -173,7 +198,9 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
       {
         from,
         to,
-        eventsRemoved: Number(result.events_removed ?? 0),
+        eventsRemoved: Number(
+          result.records_removed ?? result.events_removed ?? 0
+        ),
         framesRemoved: Number(result.frames_removed ?? 0),
       },
     ])
@@ -213,13 +240,27 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
 
   const setFramesNotStored = React.useCallback((value: boolean) => {
     framesNotStoredRef.current = value
+    frameRetentionReadyRef.current = false
     setFramesNotStoredState(value)
     if (value) setFrames([])
     void fetch("/api/privacy/retention", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ session_id: getSessionId(), retained: !value }),
-    }).catch(() => setSyncStatus("error"))
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Frame retention update failed")
+        const result = (await response.json()) as {
+          store?: string
+          audit_persisted?: boolean
+        }
+        if (result.store === "supabase" && result.audit_persisted === false) {
+          throw new Error("Retention changed without its audit record")
+        }
+        frameRetentionReadyRef.current = !value
+        setSyncStatus("ready")
+      })
+      .catch(() => setSyncStatus("error"))
   }, [])
 
   const replayMoment = React.useCallback(
@@ -357,11 +398,16 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
     ]
   )
 
-  return <DealDeskContext.Provider value={value}>{children}</DealDeskContext.Provider>
+  return (
+    <DealDeskContext.Provider value={value}>
+      {children}
+    </DealDeskContext.Provider>
+  )
 }
 
 export function useDealDesk(): DealDeskContextValue {
   const context = React.useContext(DealDeskContext)
-  if (!context) throw new Error("useDealDesk must be used within a DealDeskProvider")
+  if (!context)
+    throw new Error("useDealDesk must be used within a DealDeskProvider")
   return context
 }
