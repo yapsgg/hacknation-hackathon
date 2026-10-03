@@ -30,6 +30,25 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 ---
 
+## [0.0.2] — 2026-10-04
+
+### Done (Phase 0 — Foundation, partial)
+
+- **`schemas/event.schema.json`** — JSON Schema (draft 2020-12) for a single `CaptureEvent` (`t`, `type`, `object`, `field`, `from`, `to`, `evidence_frame`, `salient_text`, `confidence`, `source`).
+- **`schemas/work-map.schema.json`** — JSON Schema for the `WorkMap` (`steps`, `guardrails`, `screen_moment`, `open_gaps`) with `$defs` for `step`, `guardrail`, `screenMoment`, `gap`.
+- **`schemas/client-tools.md`** — frozen client-tool contract for the interviewer and tutor agents, plus the server/MCP tools and the app→backend event bus rule.
+- **`fixtures/events.mock.json`** — realistic mock capture stream for the seeded demo run (Acme ARR, relocation add-back, capex ratio, save).
+- **`fixtures/work-map.mock.json`** — pre-baked Work Map (7 steps, 4 guardrails, 3 judgment calls, 3 open gaps) for developing the tutor without a live session.
+- **`.env.example`** — Supabase, ElevenLabs/ElevenAgents, vision-model, and app env vars; `.gitignore` updated to allow committing it.
+- All JSON fixtures parse cleanly.
+
+### Still open in Phase 0
+
+- [ ] Lock the exact demo script (dialog-level).
+- [ ] Validate fixtures against the schemas in CI (needs an ajv 8 dev dependency or a script).
+
+---
+
 ## Next Steps (to finish the app)
 
 Ordered by the build priority in `ARCHITECTURE.md` §8. Each item lists concrete deliverables and a definition of done.
