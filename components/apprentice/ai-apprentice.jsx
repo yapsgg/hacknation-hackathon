@@ -2628,6 +2628,115 @@ const LP_CSS = `
   background:radial-gradient(circle at 30% 30%,#8FD3FF,transparent 50%),radial-gradient(circle at 70% 70%,#2FBF8F,transparent 55%),#2A7BD8}
 @media (min-width:640px){ .l-voice .vorb{width:36px;height:36px;margin-top:-18px;left:10px} }
 
+/* ---- Redline: type accents ---- */
+.x-red{background-image:linear-gradient(#F41A2F,#F41A2F);background-repeat:no-repeat;background-size:100% 2px;background-position:0 94%;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.x-b{font-weight:500;color:#000}
+.x-hl{background:linear-gradient(transparent 45%,#FFE3A3 45%);padding:0 2px;color:#000}
+.x-num{font-variant-numeric:tabular-nums}
+.l-mark svg{display:block}
+
+/* ---- Redline: colour frames built from the orb gradients ---- */
+.g-sky{background:radial-gradient(circle at 30% 30%,#8FD3FF,transparent 50%),radial-gradient(circle at 70% 70%,#2FBF8F,transparent 55%),#2A7BD8}
+.g-dawn{background:radial-gradient(circle at 15% 25%,#FFD2A8,transparent 40%),radial-gradient(circle at 85% 75%,#B98CE6,transparent 55%),radial-gradient(circle at 55% 50%,#F27A1A,transparent 60%),#E9A6C8}
+.g-sunset{background:radial-gradient(circle at 12% 18%,#FFD2A8,transparent 38%),radial-gradient(circle at 88% 22%,#F27A1A,transparent 45%),radial-gradient(circle at 70% 95%,#7C8BF5,transparent 50%),radial-gradient(circle at 25% 85%,#E9B7F0,transparent 45%),#F0A98C}
+.x-frame{position:relative;isolation:isolate;overflow:hidden;border-radius:24px;box-shadow:var(--ring-card);height:100%}
+.x-frame > .art-fill{z-index:0} .x-frame > .l-noise{z-index:1}
+.x-frame > .x-in{position:relative;z-index:2;display:flex;flex-direction:column;height:100%;padding:16px}
+.x-float{background:#fff;border-radius:16px;box-shadow:var(--shadow-bubble);padding:18px 20px;margin-top:auto}
+.x-float h3{font-size:16px;line-height:24px;font-weight:500;color:#000}
+.x-float p{margin-top:6px}
+.x-float h3 button{display:inline-flex;align-items:center;gap:6px}
+.x-float h3 .arr{opacity:0;transition:opacity .15s var(--ease)}
+@media (hover:hover){ .x-frame:hover .x-float h3 .arr{opacity:1} }
+.x-float h3 .cover{position:absolute;inset:0;z-index:10;border-radius:24px}
+.x-chip{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:4px 12px;border-radius:14px;background:rgba(255,255,255,.9);font-size:13px;line-height:18px;font-weight:500;color:#000;box-shadow:var(--shadow-pill)}
+.x-orb{position:relative;display:block;width:36px;height:36px;border-radius:9999px;overflow:hidden;isolation:isolate;flex:none}
+.x-stat{font-family:var(--font-sans),Geist,Inter,sans-serif;font-weight:300;font-size:56px;line-height:56px;letter-spacing:-.02em;color:#000;margin-bottom:10px}
+.x-tall{min-height:340px} .x-taller{min-height:380px}
+
+/* ---- Redline: what it catches ---- */
+.x-catch{position:relative;isolation:isolate;overflow:hidden;border-radius:24px;box-shadow:var(--ring-card);padding:16px}
+@media (min-width:768px){ .x-catch{padding:40px} }
+.x-catch > .art-fill{z-index:0} .x-catch > .l-noise{z-index:1}
+.x-catch-in{position:relative;z-index:2;display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+@media (min-width:900px){ .x-catch-in{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)} }
+.x-win{background:#fff;border-radius:16px;box-shadow:var(--shadow-bubble);overflow:hidden}
+.x-win-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;border-bottom:1px solid var(--g200);font-size:12px;line-height:16px;color:var(--g500)}
+.x-win-bar b{font-weight:500;color:#000;font-size:13px}
+.x-win .rows{padding:4px 16px 12px}
+.x-mrow{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--g200);font-size:14px;line-height:20px}
+.x-mrow:last-child{border-bottom:0}
+.x-mrow .vals{display:flex;align-items:center;gap:8px;white-space:nowrap}
+@media (max-width:640px){ .x-mrow{grid-template-columns:22px minmax(0,1fr);row-gap:6px} .x-mrow .vals{grid-column:2} }
+.x-was{color:var(--g500);text-decoration:line-through;text-decoration-color:#F41A2F;text-decoration-thickness:2px}
+.x-fix{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:9999px;background:#FDE8EA;color:#B3121F;font-weight:500;font-size:13px}
+.x-n{width:22px;height:22px;border-radius:9999px;display:grid;place-items:center;font-size:11px;font-weight:500;color:#fff;background:#000}
+.x-n.sum{background:var(--g300);color:#000}
+.x-note{grid-column:2/-1;margin-top:-4px;font-size:12px;line-height:16px;color:var(--g500)}
+.x-doc{display:grid;grid-template-columns:22px minmax(0,1fr);gap:10px;padding:12px 0;border-bottom:1px solid var(--g200)}
+.x-doc:last-child{border-bottom:0}
+.x-doc .src{font-size:12px;line-height:16px;color:var(--g500)}
+.x-doc .src b{font-weight:500;color:var(--g700)}
+.x-doc .q{margin-top:4px;padding:6px 10px;border-left:2px solid #000;background:var(--g50);font-size:14px;line-height:21px}
+.x-tutor{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.x-tutor .l-bub{margin-top:0;max-width:none;flex:1;min-width:240px;font-weight:400;font-size:15px;line-height:22px;padding:12px 16px;border-radius:7px 22px 22px 22px}
+.x-tutor .l-bub b{font-weight:500}
+.x-block{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:9999px;background:#000;color:#fff;font-size:13px}
+.x-block i{width:8px;height:8px;border-radius:9999px;background:#F41A2F}
+.x-delta{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;margin-bottom:14px}
+.x-delta .from{font-size:18px;line-height:24px;color:var(--g500);text-decoration:line-through;text-decoration-color:#F41A2F;text-decoration-thickness:2px}
+.x-delta .to{font-family:var(--font-sans),Geist,Inter,sans-serif;font-weight:400;font-size:34px;line-height:38px;letter-spacing:-.02em;color:#000}
+.x-delta .arrow{color:var(--g400);font-size:16px}
+.x-src{margin-top:12px;padding-top:12px;border-top:1px solid var(--g200);font-size:12px;line-height:16px;color:var(--g500)}
+.x-src b{font-weight:500;color:var(--g700)}
+
+/* ---- Redline: proof flow, why-now list, faq ---- */
+.x-flow{position:relative;isolation:isolate;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr);gap:12px;border-radius:24px;padding:16px;box-shadow:var(--ring-card)}
+@media (min-width:900px){ .x-flow{grid-template-columns:repeat(4,minmax(0,1fr));padding:24px} }
+.x-flow > .art-fill{z-index:0} .x-flow > .l-noise{z-index:1}
+.x-flow > .x-chip,.x-flow > .x-step{position:relative;z-index:2}
+.x-flow > .x-chip{grid-column:1/-1}
+.x-step{background:#fff;border-radius:16px;box-shadow:var(--ring-demo);padding:20px;display:flex;flex-direction:column;min-height:190px}
+.x-step .lbl{font-size:12px;color:var(--g500)}
+.x-step h3{font-size:16px;line-height:24px;font-weight:500;margin-top:40px}
+.x-step p{margin-top:6px}
+.x-step.warn{box-shadow:inset 0 0 0 1px #F27A1A}
+.x-step.dark{background:#000;color:#fff} .x-step.dark .lbl,.x-step.dark .mu{color:var(--g400)}
+.x-quote{margin-top:12px;padding:8px 12px;border-left:2px solid #000;background:var(--g50);font-size:14px;line-height:21px}
+.x-list{display:grid;grid-template-columns:minmax(0,1fr);border-top:1px solid var(--g200);margin-top:56px}
+@media (min-width:768px){ .x-list{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:48px} }
+.x-item{display:grid;grid-template-columns:40px minmax(0,1fr);gap:8px;padding:28px 0;border-bottom:1px solid var(--g200)}
+.x-item h3{font-size:16px;line-height:24px;font-weight:500}
+.x-item p{margin-top:8px}
+.x-faq{border-top:1px solid var(--g200);margin-top:40px}
+.x-faq details{border-bottom:1px solid var(--g200);padding:22px 0}
+.x-faq summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;gap:24px;font-family:var(--font-sans),Geist,Inter,sans-serif;font-weight:400;font-size:20px;line-height:28px;letter-spacing:-.01em}
+.x-faq summary::-webkit-details-marker{display:none}
+.x-faq summary::after{content:"+";color:var(--g400);font-weight:300}
+.x-faq details[open] summary::after{content:"–"}
+.x-faq details p{margin-top:12px;max-width:44rem}
+.x-cluster{display:flex;justify-content:center}
+.x-cluster .x-orb{width:44px;height:44px;margin-left:-10px;box-shadow:0 0 0 3px var(--page)}
+.x-cluster .x-orb:first-child{margin-left:0}
+
+/* ---- Redline: trust carousel ---- */
+.x-car{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:4px}
+.x-car::-webkit-scrollbar{display:none}
+.x-car > .l-card{flex:none;width:min(360px,85%);scroll-snap-align:start}
+.x-car .l-card-col{min-height:470px}
+.x-halo{position:relative;width:202px;height:202px;margin:12px auto 36px}
+.x-halo .glow{position:absolute;inset:14px;border-radius:9999px;overflow:hidden;isolation:isolate;opacity:.5}
+.lp2 .x-halo .art{position:absolute;inset:0;margin:0;width:202px;height:202px}
+.x-tmeta{display:flex;justify-content:space-between;align-items:center}
+.x-tmeta .x-chip{box-shadow:var(--ring-icon)}
+.x-tmeta .k{font-size:12px;color:var(--g400)}
+.x-car-ctl{display:flex;gap:8px;align-items:center}
+.x-car-foot{display:flex;align-items:center;gap:16px;margin-top:24px;padding:0 8px}
+.x-prog{flex:1;height:2px;background:var(--g200);border-radius:2px;position:relative;overflow:hidden}
+.x-prog i{position:absolute;left:0;top:0;bottom:0;background:#000;border-radius:2px;transition:width .3s var(--ease)}
+.x-count{font-size:14px;color:var(--g500);font-variant-numeric:tabular-nums}
+.x-count b{color:#000;font-weight:500}
+
 @media (prefers-reduced-motion: reduce){
   .lp2 *,.lp2 *::before,.lp2 *::after{animation:none!important;transition-duration:0s!important}
 }
@@ -2648,6 +2757,11 @@ const LP_MOMENTS = [
 ];
 const ORB_SLOTS = { 0: ["0rem", "0rem", 1, 1, 3], 1: ["19.404rem", "1.702rem", 0.787, 0.8, 2], 2: ["33.362rem", "3.404rem", 0.567, 0.5, 1], 3: ["43.121rem", "4.085rem", 0.426, 0, 0] };
 
+// Redline brand mark: one red line, the edit a partner makes on a junior's model.
+function RedlineMark({ size = 20 }) {
+  return <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden><path d="M5 10.5h10" stroke="#F41A2F" strokeWidth="2.4" strokeLinecap="round" /></svg>;
+}
+
 function Notch({ side }) {
   return (
     <svg viewBox="0 0 20 22" className={"notch " + side} aria-hidden>
@@ -2657,7 +2771,7 @@ function Notch({ side }) {
   );
 }
 const Dots = ({ c = ["tl", "tr"] }) => c.map((k) => <span key={k} className={"l-dot " + k} aria-hidden />);
-const Mark = () => <span className="l-mark" aria-hidden><ShieldCheck size={13} /></span>;
+const Mark = () => <span className="l-mark" aria-hidden><RedlineMark /></span>;
 
 function OrbCarousel() {
   const [a, setA] = useState(0);
@@ -2667,7 +2781,7 @@ function OrbCarousel() {
   const cur = LP_MOMENTS[a], prev = LP_MOMENTS[(a - 1 + n) % n], next = LP_MOMENTS[(a + 1) % n];
   const say = () => { try { const u = new SpeechSynthesisUtterance(cur.q); window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); } catch { /* no speech */ } };
   return (
-    <div className="l-carousel" aria-roledescription="carousel" aria-label="Questions the apprentice asked">
+    <div className="l-carousel" aria-roledescription="carousel" aria-label="Questions Redline asked">
       <div className="l-orbs">
         {LP_MOMENTS.map((m, i) => {
           const d = slot(i); const [x, y, s, o, z] = ORB_SLOTS[Math.min(3, Math.abs(d))];
@@ -2801,44 +2915,126 @@ function HeroPanel() {
   );
 }
 
-function Duo() {
-  const [front, setFront] = useState("a");
+const Orb = ({ k }) => <span className="x-orb" aria-hidden><span className={"art-fill " + k} /><span className="l-noise" /></span>;
+
+// A colour panel cut from the orb gradients, with a white card for the words.
+function ColorFrame({ orb, chip, className = "", children }) {
   return (
-    <div className="l-duo" onMouseLeave={() => setFront("a")}>
-      <div className="cap a"><h3>In the model</h3><p className="tsm mu">Management's numbers, typed straight in.</p></div>
-      <div className={"l-shot a " + (front === "a" ? "front" : "back")} onMouseEnter={() => setFront("a")} aria-hidden>
-        <div className="l-frame">
-          <div className="l-frame-bar"><span>LBO model v3.xlsx</span><span>Management case</span></div>
+    <div className={"x-frame " + className}>
+      <div className={"art-fill " + orb} aria-hidden /><div className="l-noise" aria-hidden />
+      <div className="x-in">{chip && <span className="x-chip">{chip}</span>}<div className="x-float">{children}</div></div>
+    </div>
+  );
+}
+
+// What it catches: the model and the data room side by side, numbered so each
+// wrong input points at the document that disproves it (Project Beacon, demo data).
+const CATCH_ROWS = [
+  { n: "1", label: "ARR: Crestline Health", was: "$190,000", fix: "$110,000" },
+  { n: "2", label: "Add-back: relocation, “one-time”", was: "$4.0M", fix: "Escalate to QoE" },
+  { n: "3", label: "Maintenance capex, % of revenue", was: "1.6%", fix: "4.0%" },
+];
+const CATCH_DOCS = [
+  { n: "1", src: "2025 Software Agreement", where: "§1.2", q: <>This Agreement <span className="x-hl">supersedes and replaces</span> the Master Services Agreement dated 9 February 2023.</> },
+  { n: "2", src: "General ledger", where: "Relocation and facility moves", q: <span className="x-num"><span className="x-hl">2022 $1.4M</span> · <span className="x-hl">2023 $1.9M</span> · <span className="x-hl">2024 $1.6M</span></span> },
+  { n: "3", src: "Capex schedule", where: "2021–2024", q: <>Maintenance capex averaged <span className="x-hl">4.0% of revenue</span>.</> },
+];
+
+function CatchFrame() {
+  return (
+    <div className="x-catch">
+      <div className="art-fill g-sunset" aria-hidden /><div className="l-noise" aria-hidden />
+      <div className="x-catch-in">
+        <div className="x-win">
+          <div className="x-win-bar"><b>LBO model v3.xlsx</b><span className="l-chip">Management case</span></div>
           <div className="rows">
-            <div className="l-row"><span>ARR: Crestline Health</span><span>$190,000</span></div>
-            <div className="l-row"><span>Add-back: relocation, one-time</span><span>$4.0M</span></div>
-            <div className="l-row"><span>Maintenance capex, % of revenue</span><span>1.6%</span></div>
-            <div className="l-row"><span>Sponsor IRR, 5 years</span><span>26.8%</span></div>
+            {CATCH_ROWS.map((r) => (
+              <div key={r.n} className="x-mrow"><span className="x-n" aria-hidden>{r.n}</span><span>{r.label}</span>
+                <span className="vals x-num"><span className="x-was"><span className="l-sr">Entered </span>{r.was}</span><span className="x-fix"><span className="l-sr">Should be </span>{r.fix}</span></span></div>))}
+            <div className="x-mrow"><span className="x-n sum" aria-hidden>=</span><span className="x-b">Sponsor IRR, 5 years</span>
+              <span className="vals x-num"><span className="x-was">{irrAt("1.6")}</span><span className="x-fix">{irrAt("4.0")}</span></span>
+              <span className="x-note">At historical capex, the IRR falls 5.3 points.</span></div>
           </div>
         </div>
-      </div>
-      <div className="cap b"><h3>In the data room</h3><p className="tsm mu">The documents that prove each one wrong.</p></div>
-      <div className={"l-shot b " + (front === "b" ? "front" : "back")} onMouseEnter={() => setFront("b")} aria-hidden>
-        <div className="l-frame">
-          <div className="l-frame-bar"><span>{TEACH_DEAL.code} data room</span><span>Primary sources</span></div>
+        <div className="x-win">
+          <div className="x-win-bar"><b>{TEACH_DEAL.code} data room</b><span className="l-chip">Primary sources</span></div>
           <div className="rows">
-            <div className="l-docline">§1.2 This Agreement supersedes and replaces the Master Services Agreement dated 9 February 2023.</div>
-            <div className="l-docline">Relocation and facility moves: 2022 $1.4M, 2023 $1.9M, 2024 $1.6M.</div>
-            <div className="l-docline">Maintenance capex averaged 4.0% of revenue, 2021–2024.</div>
+            {CATCH_DOCS.map((d) => (
+              <div key={d.n} className="x-doc"><span className="x-n" aria-hidden>{d.n}</span>
+                <div><p className="src"><b>{d.src}</b> · {d.where}</p><p className="q">{d.q}</p></div></div>))}
           </div>
         </div>
+        <div className="x-tutor">
+          <span className="x-block"><i aria-hidden />Save blocked</span>
+          <p className="l-bub"><b>Redline:</b> Wait. {EXPERT.first} would flag this ARR total and the relocation add-back. Does the new agreement add to the original, or replace it?</p>
+        </div>
       </div>
-      <div className="bg" aria-hidden /><div className="dring" aria-hidden />
-      <p className="l-sr">In the model: $190,000 ARR, a $4.0M one-time add-back and 1.6% capex. In the data room: the 2025 agreement replaces the MSA, relocation costs recur every year since 2022, and capex averaged 4.0%.</p>
     </div>
   );
 }
 
 const LP_CATCH = [
-  { icon: Copy, label: "Double-counted ARR", text: "An $80k MSA plus the $110k agreement that replaces it. Real ARR is $110,000." },
-  { icon: RotateCcw, label: "A recurring “one-time” cost", text: "A $4.0M relocation add-back. The same cost appears every year since 2022." },
-  { icon: AlertTriangle, label: "Capex below history", text: "1.6% against a 4.0% history. IRR falls 5.3 pp at history." },
+  { icon: Copy, orb: "orb-1", chip: "01 · Double-counted ARR", from: "$190,000", to: "$110,000", title: "One contract, counted twice",
+    text: <>An $80k MSA plus the $110k agreement that <span className="x-b">replaces</span> it.</>, src: "2025 Agreement §1.2" },
+  { icon: RotateCcw, orb: "orb-2", chip: "02 · Recurring “one-time” cost", from: "$4.0M add-back", to: "Escalate", title: "The same cost, every year",
+    text: <>Relocation booked in <span className="x-b">2022, 2023 and 2024</span>. Not one-time.</>, src: "General ledger, 2022–2024" },
+  { icon: AlertTriangle, orb: "orb-4", chip: "03 · Capex below history", from: "1.6%", to: "4.0%", title: <>IRR falls <span className="x-red">5.3 points</span></>,
+    text: <>At historical capex, 26.8% becomes <span className="x-b x-num">21.5%</span>.</>, src: "Capex schedule, 2021–2024" },
 ];
+
+const TRUST_CARDS = [
+  { orb: "orb-1", tag: "Capture", art: "circles", title: "Off the record at any time", text: "Say “off the record” or press a button. Capture pauses and that span is deleted. Only the time span is kept." },
+  { orb: "orb-2", tag: "Storage", art: "lattice", title: "Redacted before storage", text: "Transcripts are redacted before they are saved, never after." },
+  { orb: "g-sky", tag: "Storage", art: "frame", title: "Screen frames stay local", text: "Shared-screen frames are not uploaded. The Deal Desk keeps sampled frames only after the partner opts in." },
+  { orb: "orb-3", tag: "Teach", art: "cone", title: "Only verified rules are taught", text: "Anything the partner hasn't confirmed in the debrief never reaches the tutor." },
+  { orb: "orb-4", tag: "Audit", art: "ledger", title: "Every deletion leaves a receipt", text: "Off-record windows and review decisions are written to an audit log, so you can show what was removed." },
+  { orb: "orb-1", tag: "Readiness", art: "sandbox", title: "Fictional deals until it's ready", text: "Redline runs on synthetic deals only until the privacy readiness check passes." },
+];
+const cardStep = (el) => { const c = el?.firstElementChild; return c ? c.getBoundingClientRect().width + 16 : 0; };
+
+function TrustSection() {
+  const { go } = useApp();
+  const car = useRef(null);
+  const [last, setLast] = useState(1);
+  const n = TRUST_CARDS.length;
+  const update = useCallback(() => {
+    const el = car.current; const step = cardStep(el); if (!step) return;
+    const visible = Math.max(1, Math.round(el.clientWidth / step));
+    setLast(Math.min(n, Math.round(el.scrollLeft / step) + visible));
+  }, [n]);
+  useEffect(() => { update(); window.addEventListener("resize", update); return () => window.removeEventListener("resize", update); }, [update]);
+  const move = (d) => car.current?.scrollBy({ left: d * cardStep(car.current), behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  const pad = (x) => String(x).padStart(2, "0");
+  return (
+    <>
+      <section className="l-container l-framed px-d pt-xl pb-sm" id="trust">
+        <div className="l-rule" aria-hidden /><Dots />
+        <div className="l-title">
+          <div className="head"><p className="l-eyebrow">Trust</p><h2 className="l-display t5" style={{ maxWidth: "32rem" }}>The partner decides <span style={{ display: "table" }}><span className="x-b">what's kept</span></span></h2></div>
+          <div className="right-btn x-car-ctl">
+            <button className="l-btn l-s l-ibtn" aria-label="Previous trust principle" onClick={() => move(-1)}><ChevronLeft size={16} aria-hidden /></button>
+            <button className="l-btn l-s l-ibtn" aria-label="Next trust principle" onClick={() => move(1)}><ChevronRight size={16} aria-hidden /></button>
+            <button className="l-btn l-s h11" onClick={() => go("trust")}>See trust and privacy</button>
+          </div>
+        </div>
+      </section>
+      <section className="l-container l-framed px-s pb-d">
+        <div className="x-car" ref={car} onScroll={update} tabIndex={0} aria-label="Trust principles">
+          {TRUST_CARDS.map((c, i) => (
+            <div key={c.title} className="l-card l-safe"><div className="l-card-in"><div className="l-card-col">
+              <div className="x-tmeta"><span className="x-chip">{c.tag}</span><span className="k x-num">{pad(i + 1)} / {pad(n)}</span></div>
+              <div className="x-halo"><div className="glow" aria-hidden><div className={"art-fill " + c.orb} /><div className="l-noise" /></div><LineArt kind={c.art} /></div>
+              <h3>{c.title}</h3><p className="desc">{c.text}</p>
+            </div></div><div className="l-card-ring" aria-hidden /></div>))}
+        </div>
+        <div className="x-car-foot" aria-hidden>
+          <div className="x-prog"><i style={{ width: `${Math.max((100 * last) / n, 8)}%` }} /></div>
+          <span className="x-count"><b>{pad(last)}</b> / {pad(n)}</span>
+        </div>
+      </section>
+    </>
+  );
+}
 
 function LineArt({ kind }) {
   const s = { fill: "none", stroke: "#000", strokeWidth: 1 }; const d = { ...s, strokeDasharray: "2 3", opacity: 0.5 };
@@ -2852,6 +3048,24 @@ function LineArt({ kind }) {
     <svg className="art" viewBox="0 0 202 202" aria-hidden>
       {[0, 1, 2].map((i) => [0, 1, 2].map((j) => <rect key={i + "-" + j} x={31 + i * 46} y={31 + j * 46} width="46" height="46" {...(i === 1 && j === 1 ? { ...s, fill: "#000" } : s)} />))}
       <path d="M31 31 L61 11 L199 11 L169 31" {...d} /><path d="M169 31 L199 11 L199 149 L169 169" {...d} />
+    </svg>);
+  if (kind === "frame") return (
+    <svg className="art" viewBox="0 0 202 202" aria-hidden>
+      <rect x="36" y="51" width="130" height="100" rx="6" {...s} /><rect x="48" y="63" width="106" height="64" {...s} />
+      <line x1="36" y1="139" x2="166" y2="139" {...s} /><circle cx="101" cy="95" r="14" {...d} />
+      <line x1="26" y1="171" x2="176" y2="31" {...s} strokeWidth="1.5" />
+    </svg>);
+  if (kind === "ledger") return (
+    <svg className="art" viewBox="0 0 202 202" aria-hidden>
+      <rect x="46" y="31" width="110" height="140" rx="4" {...s} />
+      {[61, 109].map((y) => <line key={y} x1="62" y1={y} x2="140" y2={y} {...s} />)}
+      <line x1="62" y1="133" x2="110" y2="133" {...s} /><line x1="62" y1="85" x2="140" y2="85" {...s} stroke="#F41A2F" strokeWidth="2" />
+      <circle cx="146" cy="151" r="16" {...s} fill="#fff" /><path d="M139 151 l5 5 l10 -11" {...s} strokeWidth="1.5" />
+    </svg>);
+  if (kind === "sandbox") return (
+    <svg className="art" viewBox="0 0 202 202" aria-hidden>
+      <path d="M101 31 L166 66 L166 136 L101 171 L36 136 L36 66 Z" {...s} /><path d="M36 66 L101 101 L166 66" {...s} />
+      <line x1="101" y1="101" x2="101" y2="171" {...s} /><path d="M101 31 L101 101" {...d} /><path d="M36 136 L101 101 L166 136" {...d} />
     </svg>);
   return (
     <svg className="art" viewBox="0 0 202 202" aria-hidden>
@@ -2872,7 +3086,7 @@ function Landing2() {
   }, []);
   useEffect(() => { if (menu) menuRef.current?.querySelector("button")?.focus(); }, [menu]);
   const jump = (id) => { setMenu(false); document.getElementById(id)?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" }); };
-  const anchors = [["How it works", "how"], ["What it catches", "catch"], ["Trust", "trust"]];
+  const anchors = [["The problem", "problem"], ["How it works", "how"], ["What it catches", "catch"], ["Why now", "now"], ["Trust", "trust"]];
 
   return (
     <div className="lp2">
@@ -2885,7 +3099,7 @@ function Landing2() {
       </div>
 
       <header className="l-container l-nav">
-        <button className="l-logo" onClick={() => window.scrollTo({ top: 0 })} aria-label="Apprentice, back to top"><Mark />Apprentice</button>
+        <button className="l-logo" onClick={() => window.scrollTo({ top: 0 })} aria-label="Redline, back to top"><Mark />Redline</button>
         <nav aria-label="On this page"><ul className="l-links">{anchors.map(([l, id]) => <li key={id}><button onClick={() => jump(id)}>{l}</button></li>)}</ul></nav>
         <div className="l-nav-right" style={{ position: "relative" }}>
           <button className="l-btn l-s h9 l-hide-sm" onClick={fillDemo}>See the demo</button>
@@ -2914,12 +3128,15 @@ function Landing2() {
         {/* Hero (not framed) */}
         <section className="l-container pt-d pb-sm">
           <div className="l-title">
-            <div className="head"><h1 className="l-display t6" style={{ maxWidth: "36rem" }}><span className="l-line1">Partner-grade skepticism</span> <span style={{ display: "table" }}>for every analyst</span></h1></div>
+            <div className="head"><h1 className="l-display t6" style={{ maxWidth: "36rem" }}><span className="l-line1">Partner-grade <span className="x-red">skepticism</span></span> <span style={{ display: "table" }}>for every analyst</span></h1></div>
             <div className="cta">
               <button className="l-btn l-p h11" onClick={() => go("overview")}>Open the dashboard</button>
               <button className="l-btn l-s h11" onClick={fillDemo}>See the finished demo</button>
             </div>
-            <div className="lead"><p className="tb">The AI Apprentice learns how a senior partner challenges management's numbers, then stops junior analysts before an unverified one reaches the model.</p></div>
+            <div className="lead">
+              <p className="tb"><span className="x-b">Redline</span> learns how a senior partner challenges management's numbers, then <span className="x-b">stops junior analysts before an unverified one reaches the model.</span></p>
+              <p className="txs mu" style={{ marginTop: 16 }}>Capture the partner once. Every analyst after that gets the same thirty-second catch.</p>
+            </div>
           </div>
         </section>
         <section className="l-container pb-d" aria-label="How it works"><HeroPanel /></section>
@@ -2933,46 +3150,119 @@ function Landing2() {
           <ul className="l-wall" aria-label="Built with">{["ElevenAgents", "Gemini vision", "Microsoft Presidio", "Supabase"].map((b) => <li key={b}>{b}</li>)}</ul>
         </section>
 
-        {/* What it catches: duo */}
-        <section className="l-container l-framed px-d pt-xl pb-sm" id="catch">
+        {/* The problem */}
+        <section className="l-container l-framed px-d pt-xl pb-sm" id="problem">
           <div className="l-rule" aria-hidden /><Dots />
-          <p className="l-eyebrow">What it catches</p>
-          <h2 className="l-display t5" style={{ maxWidth: "48rem" }}>Fine in the model, <span style={{ display: "table" }}>wrong in the documents</span></h2>
+          <p className="l-eyebrow">The problem</p>
+          <h2 className="l-display t5" style={{ maxWidth: "54rem" }}>A partner can spot a broken LBO assumption in <span className="x-b">thirty seconds</span>, but never has <span className="x-red">thirty minutes</span> to explain why.</h2>
+          <p className="tb mu" style={{ marginTop: 24, maxWidth: "40rem" }}>So juniors learn the firm's rules by breaking them, <span className="x-b">one redline at a time.</span></p>
         </section>
-        <section className="l-container l-framed px-d pb-xs"><Duo /></section>
         <section className="l-container l-framed px-s pt-sm pb-sm">
           <div className="l-grid">
-            {LP_CATCH.map((c) => (
-              <div key={c.label} className="l-c4"><div className="l-card">
-                <div className="l-card-in"><div className="l-card-col">
-                  <div className="l-ico"><c.icon size={22} strokeWidth={1.5} aria-hidden /></div>
-                  <div style={{ marginTop: "auto" }}>
-                    <h3><button onClick={() => go("teach")}>{c.label}<ArrowUpRight size={12} className="arr" aria-hidden /><span className="cover" aria-hidden /></button></h3>
-                    <p className="desc">{c.text}</p>
-                  </div>
-                </div></div>
-                <div className="l-card-ring" aria-hidden />
-              </div></div>))}
+            {[["orb-1", "The partner", "30 sec", "To spot it", "Sees the $190,000 ARR is two contracts, where one replaces the other."],
+              ["orb-2", "The time it takes", "30 min", "To explain it", "The amendment, the invoices, the capex history. Time a partner rarely has mid-deal."],
+              ["orb-4", "The junior", "1 redline", "At a time", "How the rules reach juniors today: after the mistake is already in the model."]].map(([orb, chip, stat, h, d]) => (
+              <div key={stat} className="l-c4"><ColorFrame orb={orb} chip={chip} className="x-tall">
+                <p className="x-stat">{stat}</p><h3>{h}</h3><p className="tsm mu">{d}</p>
+              </ColorFrame></div>))}
           </div>
         </section>
 
-        {/* Trust */}
-        <section className="l-container l-framed px-d pt-xl pb-sm" id="trust">
+        {/* What it catches */}
+        <section className="l-container l-framed px-d pt-xl pb-sm" id="catch">
           <div className="l-rule" aria-hidden /><Dots />
           <div className="l-title">
-            <div className="head"><p className="l-eyebrow">Trust</p><h2 className="l-display t5" style={{ maxWidth: "32rem" }}>The partner decides <span style={{ display: "table" }}>what's kept</span></h2></div>
-            <div className="right-btn"><button className="l-btn l-s h11" onClick={() => go("trust")}>See trust and privacy</button></div>
+            <div className="head"><p className="l-eyebrow">What it catches</p><h2 className="l-display t5" style={{ maxWidth: "48rem" }}>Fine in the model, <span style={{ display: "table" }}><span className="x-red">wrong in the documents</span></span></h2></div>
+            <div className="lead"><p className="tb mu">Every number on the left looks reasonable in a spreadsheet. <span className="x-b">Every one is contradicted by a document</span> already sitting in the data room.</p></div>
           </div>
         </section>
-        <section className="l-container l-framed px-s pb-d">
-          <div className="l-snap" tabIndex={0} aria-label="Trust principles">
-            {[["circles", "Off the record at any time", "Say it or press a button. Only the time span is kept."],
-              ["lattice", "Redacted before storage", "Transcripts are redacted before they are saved. Synthetic data only until the readiness check passes."],
-              ["cone", "Only verified rules are taught", "Anything the partner hasn't confirmed never reaches the tutor."]].map(([k, t, d]) => (
-              <div key={t} className="l-card l-safe"><div className="l-card-in"><div className="l-card-col">
-                <LineArt kind={k} />
-                <h3>{t}</h3><p className="desc">{d}</p>
-              </div></div><div className="l-card-ring" aria-hidden /></div>))}
+        <section className="l-container l-framed px-s pt-sm pb-xs"><CatchFrame /></section>
+        <section className="l-container l-framed px-s pt-sm pb-sm">
+          <div className="l-grid">
+            {LP_CATCH.map((c) => (
+              <div key={c.chip} className="l-c4"><ColorFrame orb={c.orb} className="x-taller" chip={<><c.icon size={14} aria-hidden />{c.chip}</>}>
+                <div className="x-delta x-num"><span className="from">{c.from}</span><span className="arrow" aria-hidden>→</span><span className="to">{c.to}</span></div>
+                <h3><button onClick={() => go("teach")}>{c.title}<ArrowUpRight size={12} className="arr" aria-hidden /><span className="cover" aria-hidden /></button></h3>
+                <p className="tsm mu">{c.text}</p>
+                <p className="x-src">Source · <b>{c.src}</b></p>
+              </ColorFrame></div>))}
+          </div>
+        </section>
+
+        {/* Proof: the case the partner never showed */}
+        <section className="l-container l-framed px-d pt-xl pb-sm" id="proof">
+          <div className="l-rule" aria-hidden /><Dots />
+          <div className="l-title">
+            <div className="head"><p className="l-eyebrow">Proof it teaches judgment</p><h2 className="l-display t5" style={{ maxWidth: "34rem" }}>It catches the case <span style={{ display: "table" }}>the partner <span className="x-red">never showed</span></span></h2></div>
+            <div className="lead"><p className="tb mu">A junior who memorizes “amendments replace” would get Customer 3 wrong. The tutor teaches the reading, not the answer.</p></div>
+          </div>
+        </section>
+        <section className="l-container l-framed px-s pt-sm pb-sm">
+          <div className="x-flow">
+            <div className="art-fill g-dawn" aria-hidden /><div className="l-noise" aria-hidden />
+            <span className="x-chip">Customer 3 · a case the partner never showed</span>
+            <div className="x-step"><p className="lbl">01 · Partner session</p><h3>Crestline: the agreement replaces the MSA</h3><p className="txs mu">ARR set to $110,000, not $190,000.</p></div>
+            <div className="x-step"><p className="lbl">02 · Verified rule</p><h3>Read the language before summing</h3><div className="x-quote">“supersedes and replaces” vs “in addition to”</div></div>
+            <div className="x-step warn"><p className="lbl">03 · New case, never shown</p><h3>Customer 3 add-on</h3><p className="txs mu">$120k order form plus a $45k add-on that is “in addition to” it.</p></div>
+            <div className="x-step dark"><p className="lbl">04 · Tutor</p><h3>Add them: <span className="x-num" style={{ fontSize: 22 }}>$165,000</span></h3><p className="txs mu">Blocked until the junior reads the add-on, not just the rule.</p></div>
+          </div>
+        </section>
+
+        {/* Why now */}
+        <section className="l-container l-framed px-d pt-xl pb-d" id="now">
+          <div className="l-rule" aria-hidden /><Dots />
+          <div className="l-title">
+            <div className="head"><p className="l-eyebrow">Why now</p><h2 className="l-display t5" style={{ maxWidth: "34rem" }}>The partner's thirty seconds <span style={{ display: "table" }}>can finally be captured</span></h2></div>
+            <div className="lead"><p className="tb mu">How juniors learn changed, and so did what software can see and hear.</p></div>
+          </div>
+          <div className="x-list">
+            {[["orb-1", "Learning by osmosis stopped", "Hybrid deal teams mean juniors rarely sit beside a partner during a QoE scrub. The “wait, check that” moment doesn't reach them."],
+              ["orb-2", "Every class starts from zero", "Analyst programs typically run about two years, so firms re-teach the same lessons to each new class, usually after the mistake."],
+              ["orb-3", "AI speeds up typing, not doubt", "Tools now spread a data room in minutes, which moves unchecked management numbers into the model faster."],
+              ["g-sky", "Voice and vision went real-time", "An agent can now follow a screen, wait for a natural pause and ask one question. Capturing a partner mid-task is finally practical."]].map(([orb, h, d]) => (
+              <div key={h} className="x-item"><Orb k={orb} /><div><h3>{h}</h3><p className="tsm mu">{d}</p></div></div>))}
+          </div>
+        </section>
+
+        {/* Why not just */}
+        <section className="l-container l-framed px-d pt-xl pb-sm">
+          <div className="l-rule" aria-hidden /><Dots />
+          <p className="l-eyebrow">Why not just…</p>
+          <h2 className="l-display t5" style={{ maxWidth: "40rem" }}>Training that happens <span style={{ display: "table" }}>inside the work</span></h2>
+        </section>
+        <section className="l-container l-framed px-s pt-sm pb-sm">
+          <div className="l-grid">
+            {[["…a training deck?", "Taught once, months early", "Covers the rule before the deal. Nothing checks the model when it matters."],
+              ["…a general AI copilot?", "Knows finance, not your firm", "It has no idea how your partners scrub, and no partner signs off on what it says."]].map(([q, h, d]) => (
+              <div key={q} className="l-c4"><div className="l-card"><div className="l-card-in"><div className="l-card-col">
+                <p className="tb" style={{ marginBottom: 64 }}>{q}</p>
+                <div style={{ marginTop: "auto" }}><h3>{h}</h3><p className="desc">{d}</p></div>
+              </div></div><div className="l-card-ring" aria-hidden /></div></div>))}
+            <div className="l-c4"><ColorFrame orb="orb-1" chip="Redline" className="x-tall" >
+              <h3>Your partner's rules, at the save button</h3><p className="tsm mu">Learned from your own partners, verified by them, and applied before an input is committed.</p>
+            </ColorFrame></div>
+          </div>
+        </section>
+
+        <TrustSection />
+
+        {/* Who it's for + FAQ */}
+        <section className="l-container l-framed px-d pt-xl pb-d">
+          <div className="l-rule" aria-hidden /><Dots />
+          <p className="l-eyebrow">Who it's for</p>
+          <h2 className="l-display t5" style={{ maxWidth: "40rem" }}>Teams where one missed clause <span style={{ display: "table" }} className="x-b">moves the price</span></h2>
+          <div className="l-grid" style={{ marginTop: 48 }}>
+            {[["orb-2", "PE deal teams", "Ramp each analyst class on the firm's own rules within a deal cycle."],
+              ["g-sky", "QoE and diligence advisers", "Keep partner judgment consistent across every engagement team."],
+              ["orb-3", "Talent and onboarding leads", "Training that checks real work, not quiz answers."]].map(([orb, h, d]) => (
+              <div key={h} className="l-c4"><ColorFrame orb={orb} chip="For" className="x-tall"><h3>{h}</h3><p className="tsm mu">{d}</p></ColorFrame></div>))}
+          </div>
+          <div className="x-faq">
+            {[["Does the partner have to change how they work?", "No. They do a normal scrub. Redline asks one short question at natural pauses, a handful of times per session."],
+              ["Where does our deal data go?", "Transcripts are redacted before storage, off-the-record spans are deleted, and the demo runs on fictional deals only."],
+              ["What if the tutor gets a rule wrong?", "It only teaches rules the partner verified in the debrief, and each rule links back to the partner's own words."],
+              ["Does it work with our Excel models?", "Today it runs in a sandbox deal desk. Working inside existing templates is on the roadmap."]].map(([q, a], i) => (
+              <details key={q} open={i === 0}><summary>{q}</summary><p className="tsm mu">{a}</p></details>))}
           </div>
         </section>
 
@@ -2980,7 +3270,10 @@ function Landing2() {
         <div className="l-band">
           <div className="l-container l-framed l-band-in">
             <Dots c={["tl", "tr", "bl", "br"]} />
-            <p className="l-display t4">See it catch the $80,000 before the model does.</p>
+            <div style={{ flex: "auto", display: "flex", flexDirection: "column", gap: 20, alignItems: "center" }}>
+              <div className="x-cluster" aria-hidden>{["orb-1", "orb-2", "g-sky", "orb-3", "orb-4"].map((k) => <Orb key={k} k={k} />)}</div>
+              <p className="l-display t4" style={{ textAlign: "center" }}>Give every analyst the partner's <span className="x-red">thirty seconds</span>.</p>
+            </div>
             <div className="btns">
               <button className="l-btn l-s h11" onClick={fillDemo}>See the finished demo</button>
               <button className="l-btn l-p h11" onClick={() => go("overview")}>Open the dashboard</button>
@@ -2990,7 +3283,7 @@ function Landing2() {
       </main>
 
       <footer className="l-container l-foot">
-        <div><button className="l-logo" onClick={() => window.scrollTo({ top: 0 })}><Mark />Apprentice</button>
+        <div><button className="l-logo" onClick={() => window.scrollTo({ top: 0 })}><Mark />Redline</button>
           <p className="txs mu" style={{ marginTop: 14, maxWidth: "18rem" }}>Demo data · fictional deals. Hack-Nation × ElevenLabs, 7th Global AI Hackathon, Challenge 01.</p></div>
         <ul className="l-foot-groups">
           {[["Capture", [["Overview", "overview"], ["Live session", "capture"]]],
@@ -3002,8 +3295,8 @@ function Landing2() {
 
       <div className="l-voice">
         <button onClick={() => { try { const u = new SpeechSynthesisUtterance(LP_MOMENTS[0].q); window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); } catch { /* no speech */ } }}
-          aria-label="Hear a question the apprentice asked (browser voice preview)">
-          <span className="vorb" aria-hidden><span className="l-noise" /></span>Hear the apprentice
+          aria-label="Hear a question Redline asked (browser voice preview)">
+          <span className="vorb" aria-hidden><span className="l-noise" /></span>Hear Redline
         </button>
       </div>
     </div>
@@ -3107,7 +3400,7 @@ function Sidebar() {
   const { voice, setVoice, saveStatus, go } = useApp();
   return (
     <aside className="sidenav" aria-label="Sidebar">
-      <button className="brand" style={{ textAlign: "left", borderRadius: 8 }} onClick={() => go("landing")} aria-label="Apprentice home"><span className="brand-mark" aria-hidden><ShieldCheck size={13} /></span>Apprentice</button>
+      <button className="brand" style={{ textAlign: "left", borderRadius: 8 }} onClick={() => go("landing")} aria-label="Redline home"><span className="brand-mark" aria-hidden><RedlineMark size={16} /></span>Redline</button>
       <div className="people stack x-tight">
         <span className="t-meta">{EXPERT.name}</span><span className="t-sec">Expert, senior partner</span>
         <span className="t-meta" style={{ marginTop: 4 }}>{TRAINEE.name}</span><span className="t-sec">Learning, first deal</span>
@@ -3376,7 +3669,7 @@ export default function App() {
           <div className="topbar">
             <button className="pill-btn" style={{ minWidth: 44 }} aria-label="Home" onClick={() => go("landing")}><ShieldCheck size={16} aria-hidden /></button>
             <button className="pill-btn" style={{ minWidth: 44 }} aria-label="Open menu" aria-haspopup="dialog" onClick={() => setSheet(true)}><Menu size={18} aria-hidden /></button>
-            <span className="brand" style={{ padding: 0 }}><span className="brand-mark" aria-hidden><ShieldCheck size={13} /></span>Apprentice</span>
+            <span className="brand" style={{ padding: 0 }}><span className="brand-mark" aria-hidden><RedlineMark size={16} /></span>Redline</span>
             <span className="spacer" />
             <span className="t-meta"><Info size={13} aria-hidden style={{ verticalAlign: "-2px" }} /> {DEMO_LABEL}</span>
           </div>
