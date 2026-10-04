@@ -26,6 +26,7 @@ interface StoredState {
   gaps: Record<string, unknown>
   claims: Record<string, unknown>
   signed: boolean
+  workMap?: Record<string, unknown> | null
   struck: Record<string, unknown>
   custom: Record<string, unknown>
   mapStep: number
@@ -54,6 +55,9 @@ function validState(value: unknown): value is StoredState {
     !isRecord(value.gaps) ||
     !isRecord(value.claims) ||
     typeof value.signed !== "boolean" ||
+    (value.workMap !== undefined &&
+      value.workMap !== null &&
+      !isRecord(value.workMap)) ||
     !isRecord(value.struck) ||
     !isRecord(value.custom) ||
     !Number.isInteger(value.mapStep) ||

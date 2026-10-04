@@ -584,7 +584,7 @@ function stepCap(prev, dt) {
       c.agentLine = `Thanks, ${EXPERT.first}. I have a few open questions for the debrief.`;
       continue;
     }
-    c.events.push({ t: e.t, kind: "screen", text: e.text, field: e.field });
+    c.events.push({ t: e.t, kind: "screen", text: e.text, field: e.field, raw: e.event });
     (e.cands || []).forEach((k) => {
       if (k.drop) c.dropped.push({ t: e.t, q: k.q, why: k.drop });
       else if (k.defer) c.deferred.push({ t: e.t, q: k.q, why: k.why, gap: k.defer });
@@ -634,7 +634,7 @@ function stepCap(prev, dt) {
       const selected = c.queue.findIndex((item) => item.id === decision.candidate.id);
       const [k] = c.queue.splice(selected, 1);
       if (sig.active) c.interruptions++; // never happens by construction; kept as a metric
-      c.asked.push({ id: k.id, q: k.q, type: k.type, t, eventT: k.eventT, eventText: k.eventText, quiet: sig.quiet, voiceSilenceFor: sig.voiceSilenceFor, interactionIdleFor: sig.interactionIdleFor, alts: k.alts, governorScore: decision.score, trigger: k.trigger });
+      c.asked.push({ id: k.id, step: k.step, q: k.q, type: k.type, t, eventT: k.eventT, eventText: k.eventText, quiet: sig.quiet, voiceSilenceFor: sig.voiceSilenceFor, interactionIdleFor: sig.interactionIdleFor, alts: k.alts, governorScore: decision.score, trigger: k.trigger });
       c.transcript.push({ t, who: "agent", text: k.q });
       c.agent = "asking"; c.agentLine = k.q; c.askingUntil = t + 2.5;
       c.dyn.push({ from: t + 2.5, to: t + 8 });
@@ -1418,7 +1418,7 @@ function useFrameSampler(stream, videoRef, capRef, setCap) {
 
 /* ============================= DEBRIEF ================================ */
 function DebriefPage() {
-  const { cap, setCap, gaps, setGaps, claims, setClaims, signed, setSigned, addQuote, ruleEvidence, claimText, ruleSources, go, voice, sel, announce } = useApp();
+  const { cap, setCap, gaps, setGaps, claims, setClaims, signed, buildWorkMap, workMapStatus, addQuote, ruleEvidence, claimText, ruleSources, go, voice, sel, announce } = useApp();
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState("");
   const [agentLine, setAgentLine] = useState("");
@@ -1450,7 +1450,11 @@ function DebriefPage() {
     setClaims((c) => ({ ...c, [r.id]: { status: "corrected", text: draft.trim(), quote: key } }));
     setEditing(null); setDraft("");
   }
-  function signOff() { setSigned(true); announce(`Teach-back confirmed. ${sel.claimsTotal} rules are verified.`); }
+  async function signOff() {
+    const built = await buildWorkMap();
+    if (built) announce(`Teach-back confirmed. ${sel.claimsTotal} rules are verified and the Work Map was compiled.`);
+    else announce("The Work Map could not be compiled. Review the session and try again.");
+  }
 
   if (!cap.done) return (
     <>
@@ -1539,7 +1543,8 @@ function DebriefPage() {
                     <button className="btn compact" style={{ alignSelf: "flex-start" }} onClick={() => go("map")}>Open the Work Map</button></div></div>
               ) : (
                 <div className="stack tight">
-                  <button className="btn capsule" disabled={!allClaims} onClick={signOff} style={{ alignSelf: "flex-start" }}>Confirm teach-back as {EXPERT.first}</button>
+                  <button className="btn capsule" disabled={!allClaims || workMapStatus === "building"} onClick={signOff} style={{ alignSelf: "flex-start" }}>{workMapStatus === "building" ? "Building Work Map…" : `Confirm teach-back as ${EXPERT.first}`}</button>
+                  {workMapStatus === "error" && <p className="t-sec" role="status">Work Map build failed. The teach-back remains unsigned so it is safe to retry.</p>}
                   <p className="t-sec">{allClaims
                     ? `Marks ${sel.claimsTotal} rules as verified. The tutor and the agent export will use them; anything later struck from the record drops back out.`
                     : `Confirm or correct every line first (${sel.claimsTotal - sel.claimsResolved} left).`}</p>
@@ -1561,12 +1566,22 @@ function KindChip({ kind }) {
 
 /* ============================ WORK MAP ================================ */
 function WorkMapPage() {
-  const { signed, ruleEvidence, claimText, ruleSources, go, mapStep, setMapStep, sel } = useApp();
-  const sel2 = STEPS.find((s) => s.n === mapStep) || STEPS[0];
+  const { signed, workMap, cap, ruleEvidence, claimText, ruleSources, go, mapStep, setMapStep, sel } = useApp();
+  const mapSteps = STEPS.map((step) => {
+    const built = workMap?.steps?.find((item) => item.id === step.n);
+    return built ? {
+      ...step,
+      title: built.title,
+      t: built.screen_moment?.t ?? step.t,
+      decision: built.decision ?? step.decision,
+      buildStatus: built.status,
+    } : step;
+  });
+  const sel2 = mapSteps.find((s) => s.n === mapStep) || mapSteps[0];
   const stepVerified = (s) => s.rules.every((id) => ruleEvidence(id) === "verified");
   const guards = RULES.filter((r) => r.kind === "guardrail");
-  const judg = STEPS.filter((s) => s.judgment);
-  const jump = (t) => { let best = STEPS[0]; STEPS.forEach((s) => { if (s.t <= t) best = s; }); setMapStep(best.n); };
+  const judg = mapSteps.filter((s) => s.judgment);
+  const jump = (t) => { let best = mapSteps[0]; mapSteps.forEach((s) => { if (s.t <= t) best = s; }); setMapStep(best.n); };
   const selRules = sel2.rules.map((id) => RULE[id]);
   const reasonRules = selRules.filter((r) => r.kind !== "guardrail");
   const guardRules = selRules.filter((r) => r.kind === "guardrail");
@@ -1575,16 +1590,17 @@ function WorkMapPage() {
   return (
     <>
       <PageHead title="Work Map: from data room to IC memo"
-        lede={`${STEPS.length} steps, ${judg.length} judgment calls and ${guards.length} guardrails. Every step links to its moment on ${EXPERT.first}'s screen and to her own words.`}
+        lede={`${mapSteps.length} steps, ${judg.length} judgment calls and ${guards.length} guardrails. Every step links to its moment on ${EXPERT.first}'s screen and to her own words.`}
         actions={<button className="btn capsule" onClick={() => go("teach")}>Teach this to {TRAINEE.first}</button>} />
       {!signed && <div className="notice pending" role="status"><Clock size={16} aria-hidden /><span>Draft: {sel.claimsTotal - sel.verified} of {sel.claimsTotal} rules aren't verified yet, and the tutor won't teach them. <button className="link" onClick={() => go("debrief")}>Finish the debrief</button></span></div>}
+      {workMap && <div className="notice success inline" role="status"><Database size={16} aria-hidden /><span>Compiled from {cap.events.filter((event) => event.raw).length} captured events. {workMap.correction_count || 0} expert corrections are included.</span></div>}
 
       <div className="stack">
         <Card title="Session timeline" extra={<div className="row t-sec"><span>Square: judgment call</span><span>Dashed: proposed</span><span>Solid: verified</span></div>}>
           <div className="track">
             <div className="track-line" />
             {[0, 60, 120, 180, END_T].map((t) => <span key={t} className="track-tick" style={{ left: `${(t / END_T) * 100}%` }}>{fmt(t)}</span>)}
-            {STEPS.map((s) => (
+            {mapSteps.map((s) => (
               <button key={s.n} className={"track-m" + (stepVerified(s) ? " verified" : "") + (s.judgment ? " judg" : "")} aria-current={s.n === sel2.n ? "step" : undefined}
                 style={{ left: `${(s.t / END_T) * 100}%` }} onClick={() => setMapStep(s.n)}
                 aria-label={`Step ${s.n}: ${s.title}, ${fmt(s.t)}, ${stepVerified(s) ? "verified" : "proposed"}${s.judgment ? ", judgment call" : ""}`}>{s.n}</button>))}
@@ -1594,7 +1610,7 @@ function WorkMapPage() {
         <div className="grid g-map">
           <Card title="Steps">
             <ol className="steps">
-              {STEPS.map((s) => {
+              {mapSteps.map((s) => {
                 const g = s.rules.filter((id) => RULE[id].kind === "guardrail").length;
                 return (
                   <li key={s.n}><button aria-current={s.n === sel2.n ? "step" : undefined} onClick={() => setMapStep(s.n)}>
@@ -1609,7 +1625,7 @@ function WorkMapPage() {
 
           <Card label={`Step ${sel2.n} detail`}>
             <div className="stack">
-              <div className="row"><h2 className="t-decision">Step {sel2.n} of {STEPS.length}: {sel2.title.toLowerCase()}</h2><span className="spacer" />
+              <div className="row"><h2 className="t-decision">Step {sel2.n} of {mapSteps.length}: {sel2.title.toLowerCase()}</h2><span className="spacer" />
                 {sel2.judgment && <Badge icon={Flag}>Judgment call</Badge>}<Evidence level={stepVerified(sel2) ? "verified" : "proposed"} /></div>
               <dl className="kv">
                 <dt>Screen moment</dt>
@@ -1638,7 +1654,7 @@ function WorkMapPage() {
               </dl>
               <div className="row">
                 <button className="btn compact" disabled={sel2.n === 1} onClick={() => setMapStep(sel2.n - 1)}>Previous step</button>
-                <button className="btn compact" disabled={sel2.n === STEPS.length} onClick={() => setMapStep(sel2.n + 1)}>Next step</button>
+                <button className="btn compact" disabled={sel2.n === mapSteps.length} onClick={() => setMapStep(sel2.n + 1)}>Next step</button>
               </div>
             </div>
           </Card>
@@ -2130,6 +2146,8 @@ export default function App() {
   const [gaps, setGaps] = useState({});
   const [claims, setClaims] = useState({});
   const [signed, setSigned] = useState(false);
+  const [workMap, setWorkMap] = useState(null);
+  const [workMapStatus, setWorkMapStatus] = useState("idle");
   const [struck, setStruck] = useState({});
   const [custom, setCustom] = useState({});
   const [mapStep, setMapStep] = useState(5);
@@ -2176,6 +2194,8 @@ export default function App() {
     setGaps(state.gaps || {});
     setClaims(state.claims || {});
     setSigned(!!state.signed);
+    setWorkMap(state.workMap || null);
+    setWorkMapStatus(state.workMap ? "ready" : "idle");
     setStruck(state.struck || {});
     setCustom(state.custom || {});
     setMapStep(Number.isInteger(state.mapStep) ? state.mapStep : 1);
@@ -2237,12 +2257,13 @@ export default function App() {
     gaps,
     claims,
     signed,
+    workMap,
     struck,
     custom,
     mapStep,
     teach,
     settings,
-  }), [page, cap, gaps, claims, signed, struck, custom, mapStep, teach, settings]);
+  }), [page, cap, gaps, claims, signed, workMap, struck, custom, mapStep, teach, settings]);
 
   useEffect(() => {
     if (!stateReady) return;
@@ -2272,8 +2293,45 @@ export default function App() {
   const go = useCallback((p) => setPage(p), []);
   const addQuote = (k, q) => setCustom((c) => ({ ...c, [k]: q }));
   const announce = (text) => { setLive(""); setTimeout(() => setLive(text), 30); };
+  const buildWorkMap = async () => {
+    setWorkMapStatus("building");
+    const correctionsByStep = new Map();
+    RULES.forEach((rule) => {
+      const claim = claims[rule.id];
+      if (claim?.status === "corrected") correctionsByStep.set(rule.step, { step_id: rule.step, text: claim.text });
+    });
+    const answers = [
+      ...cap.asked.map((item) => ({ id: item.id, step_id: item.step, asked_t: item.t, answer: quotes[item.id]?.en })).filter((item) => item.step && item.answer),
+      ...GAPS.filter((gap) => gaps[gap.id] === "answered").map((gap) => ({ id: gap.id, step_id: gap.step, asked_t: quotes[gap.id]?.t ?? END_T, answer: quotes[gap.id]?.en })).filter((item) => item.answer),
+    ];
+    try {
+      const response = await fetch("/api/work-map", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          session_id: getApprenticeSessionId(),
+          expert: EXPERT.name,
+          events: cap.events.map((event) => event.raw).filter(Boolean),
+          answers,
+          gaps: GAPS.map((gap) => ({ id: gap.id, step_id: gap.step, question: gap.q, risk: gap.risk, status: gaps[gap.id] === "answered" ? "closed" : "open" })),
+          corrections: [...correctionsByStep.values()],
+          confirmed_step_ids: STEPS.map((step) => step.n),
+          confirmed_by_expert: true,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.work_map) throw new Error(payload.error || "Work Map build failed");
+      setWorkMap(payload.work_map);
+      setSigned(true);
+      setWorkMapStatus("ready");
+      return true;
+    } catch {
+      setWorkMapStatus("error");
+      return false;
+    }
+  };
   const resetAll = () => {
-    setCap(initCap()); setGaps({}); setClaims({}); setSigned(false); setStruck({}); setCustom({});
+    setCap(initCap()); setGaps({}); setClaims({}); setSigned(false); setWorkMap(null); setWorkMapStatus("idle"); setStruck({}); setCustom({});
     setTeach({ log: [], saved: {}, preds: {}, forms: {}, msgs: {} }); setMapStep(5); setPage("overview");
     const sessionId = getApprenticeSessionId();
     window.localStorage.removeItem(`apprentice-state:${sessionId}`);
@@ -2283,12 +2341,12 @@ export default function App() {
     setCap((c) => (c.done ? c : runToEnd(initCap())));
     setGaps(Object.fromEntries(GAPS.map((g) => [g.id, "answered"])));
     setClaims(Object.fromEntries(RULES.map((r) => [r.id, r.draftWrong ? { status: "corrected", text: r.text, quote: r.correction } : { status: "confirmed", text: r.text }])));
-    setSigned(true); setPage("map"); announce(`Finished demo session loaded. ${RULES.length} canonical rules verified.`);
+    setSigned(true); setWorkMap(null); setWorkMapStatus("idle"); setPage("map"); announce(`Finished demo session loaded. ${RULES.length} canonical rules verified.`);
   };
   const askReset = (kind = "reset") => setConfirm(kind);
 
   const ctx = {
-    page, go, cap, setCap, gaps, setGaps, claims, setClaims, signed, setSigned, struck, setStruck, quotes, addQuote,
+    page, go, cap, setCap, gaps, setGaps, claims, setClaims, signed, setSigned, workMap, buildWorkMap, workMapStatus, struck, setStruck, quotes, addQuote,
     claimText, ruleSources, ruleEvidence, isVerified, sel, mapStep, setMapStep, teach, setTeach, settings, setSettings,
     voice, setVoice, fillDemo, resetAll, askReset, announce, saveStatus,
   };

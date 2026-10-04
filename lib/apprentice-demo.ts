@@ -64,6 +64,7 @@ export const APPRENTICE_GAPS = (CANONICAL_WORK_MAP.open_gaps ?? []).map(
     id: gap.id,
     step: gap.step_id ?? 1,
     q: gap.question,
+    risk: gap.risk ?? "medium",
     why: `${gap.risk ?? "medium"} risk gap from the canonical Work Map`,
   })
 )
@@ -147,6 +148,7 @@ export const APPRENTICE_ACTIVITY = [
 
 interface ApprenticeQuestionCandidate {
   id: string
+  step: number
   q: string
   type: "reason" | "guardrail"
   trigger: GovernorTrigger
@@ -161,6 +163,7 @@ const questionAt: Record<number, ApprenticeQuestionCandidate[]> = {
   95.4: [
     {
       id: "q-acme",
+      step: 2,
       q: "You changed Acme from $190,000 to $110,000. Why not add both contracts?",
       type: "reason",
       trigger: "value_committed",
@@ -174,6 +177,7 @@ const questionAt: Record<number, ApprenticeQuestionCandidate[]> = {
   150.3: [
     {
       id: "q-relocation",
+      step: 3,
       q: "What made the $4 million relocation add-back look recurring?",
       type: "reason",
       trigger: "doc_closed",
@@ -187,6 +191,7 @@ const questionAt: Record<number, ApprenticeQuestionCandidate[]> = {
   199.6: [
     {
       id: "q-capex",
+      step: 4,
       q: "When capex is below history, when do you stop and escalate?",
       type: "guardrail",
       trigger: "doc_closed",
@@ -200,6 +205,7 @@ const questionAt: Record<number, ApprenticeQuestionCandidate[]> = {
   205.6: [
     {
       id: "q-save",
+      step: 7,
       q: "What must be escalated before these inputs can be committed?",
       type: "guardrail",
       trigger: "value_committed",
@@ -236,6 +242,7 @@ export const APPRENTICE_SCRIPT = [
     kind: "screen",
     text: describeEvent(event),
     field: fieldForEvent(event),
+    event,
     cands: questionAt[event.t] ?? [],
   })),
   { t: 218, kind: "end", text: "Sabine ended the seeded diligence task" },
