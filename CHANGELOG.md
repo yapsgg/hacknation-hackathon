@@ -241,6 +241,26 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 ---
 
+## [0.0.12] — 2026-10-04
+
+### Done (latest Deal Desk UI integrated with Phase 4/5)
+
+- **Conflict-safe integration** — merged `worktree-deal-desk-ui-v2` into a branch based on current `testing`, keeping the Phase 4/5 privacy, Tutor, mastery, approval, and audit behavior as the behavioral source of truth.
+- **Updated Deal Desk** — the new three-pane analyst workspace, source-aware LBO input groups, document verification states, scripted source-check cards, activity feed, and Senior Debrief route now run on the current backend.
+- **Real approval flow** — editing the Senior Debrief revokes Tutor approval; completing all seven reviews and resolving the three gaps enables publish, which restores the persisted approval state.
+- **Privacy controls preserved** — synthetic-only readiness, frame-retention authorization, capture counts, off-record purge windows, and deletion counts remain visible in the redesigned Apprentice panel.
+- **Integrated acceptance pass** — wrong Acme ARR was blocked, corrected ARR values saved, off-record purged the active window, and the seven-step debrief published successfully in the local browser with no console errors.
+- **Validation** — tests, lint, typecheck, and production build pass; focused tests cover the new source-check prompt suppression after evidence is reviewed.
+
+### Still requires deployed or hardware verification
+
+- [ ] Deploy the combined branch to Preview and repeat the live Supabase deletion check.
+- [ ] Configure a reachable `PRESIDIO_ANALYZER_URL` before using real deal data.
+- [ ] Run the microphone, screen-share, and spoken off-record flow in Chrome on the demo laptop.
+- [ ] Configure judge access around Vercel Deployment Protection.
+
+---
+
 ## Next Steps (to finish the app)
 
 Ordered by the build priority in `ARCHITECTURE.md` §8. Each item lists concrete deliverables and a definition of done.
