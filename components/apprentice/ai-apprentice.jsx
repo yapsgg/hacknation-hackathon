@@ -22,6 +22,7 @@ import {
   APPRENTICE_STEPS,
 } from "@/lib/apprentice-demo";
 import { evaluateQuestionSlot, QUESTION_GOVERNOR_POLICY } from "@/lib/question-governor";
+import { LiveInterviewer } from "@/components/apprentice/live-interviewer";
 
 /* ------------------------------------------------------------------
    The AI Apprentice: starter UI, rebuilt on the Mono design practices.
@@ -1032,7 +1033,7 @@ function CommandBar({ onDone }) {
   );
 }
 
-/* Browser speech is a stand-in. Swap for the ElevenAgents session (Expressive Mode). */
+/* Browser speech remains the no-key fallback for scripted questions. */
 function speakText(on, text) {
   try {
     if (!on || !window.speechSynthesis || !text) return;
@@ -1123,8 +1124,8 @@ function OverviewPage() {
       how: `${TRAINEE.first} works an unseen deal; only verified rules can block her.`,
       ev: `${S.handled} of ${S.casesTotal} stages, ${S.caught} inputs caught` },
     { name: "Trust", page: "trust", ok: S.offSegs >= 1,
-      how: "Off the record by voice or button; names, SSNs and salaries redacted in the browser.",
-      ev: `${S.offSegs} off-record ${S.offSegs === 1 ? "segment" : "segments"}, ${S.redacted} items redacted` },
+      how: "Off the record by voice or button; transcript redaction is server-side when Presidio is configured.",
+      ev: `${S.offSegs} off-record ${S.offSegs === 1 ? "segment" : "segments"}, ${S.redacted} synthetic items redacted` },
   ];
   const shown = S.awaiting.slice(0, 3);
   return (
@@ -1185,11 +1186,12 @@ function OverviewPage() {
 
 /* ============================= CAPTURE ================================ */
 function CapturePage() {
-  const { cap, setCap, settings, go, voice, sel, announce } = useApp();
+  const { cap, setCap, settings, go, voice, sel, announce, getApprenticeSessionId } = useApp();
   const [tab, setTab] = useState("questions");
   const [stream, setStream] = useState(null);
   const [shareMsg, setShareMsg] = useState(null);
   const [open, setOpen] = useState(null);
+  const [liveVoiceConnected, setLiveVoiceConnected] = useState(false);
   const videoRef = useRef(null);
   const capRef = useRef(cap);
 
@@ -1206,9 +1208,9 @@ function CapturePage() {
   const asked = cap.asked;
   const said = useRef(asked.length);
   useEffect(() => {
-    if (asked.length > said.current) speakText(voice, asked[asked.length - 1].q);
+    if (asked.length > said.current && !liveVoiceConnected) speakText(voice, asked[asked.length - 1].q);
     said.current = asked.length;
-  }, [asked, voice]);
+  }, [asked, liveVoiceConnected, voice]);
   useEffect(() => { if (cap.done) announce("Capture finished. The debrief is ready."); }, [cap.done]); // eslint-disable-line
 
   useEffect(() => { if (videoRef.current && stream) videoRef.current.srcObject = stream; }, [stream]);
@@ -1242,6 +1244,14 @@ function CapturePage() {
     holding: [Hand, `Holding a question while ${EXPERT.first} is ${cap.holdReason}`], off: [EyeOff, "Off the record"], done: [Check, "Task finished"],
   }[cap.agent];
   const StateIcon = state[0];
+  const latestScreenEvent = [...cap.events].reverse().find((event) => event.kind === "screen");
+  const liveScreenState = {
+    state_summary: latestScreenEvent?.text || (stream ? "A live screen is shared; only local frame changes are available." : "The recorded synthetic session is ready."),
+    recent_events: cap.events.slice(-8).map((event) => event.raw || { t: event.t, type: event.kind, object: event.text }),
+    current_doc: latestScreenEvent?.raw?.object || null,
+    elapsed_s: Number(cap.t.toFixed(1)),
+  };
+  const liveSlot = cap.agent === "asking" ? (cap.asked.at(-1) || null) : null;
 
   return (
     <>
@@ -1294,6 +1304,16 @@ function CapturePage() {
         </div>
 
         <div className="stack">
+          <LiveInterviewer
+            sessionId={getApprenticeSessionId()}
+            elapsedSeconds={cap.t}
+            questionCount={cap.asked.length}
+            offRecord={cap.off}
+            slot={liveSlot}
+            screenState={liveScreenState}
+            onConnectionChange={setLiveVoiceConnected}
+            onOffRecordChange={(active) => setCap((current) => current.off === active ? current : toggleOff(current, "voice command"))}
+          />
           <section className={"card agent" + (cap.off ? " hatch" : "")} aria-live="polite" aria-label="Apprentice">
             <div className="agent-state" style={cap.off ? { color: "var(--text)" } : null}><StateIcon size={16} aria-hidden /> {state[1]}</div>
             {cap.agent === "asking" && <p className="agent-line">“{cap.agentLine}”</p>}
@@ -1993,8 +2013,26 @@ const ENTITIES = [
   ["EMAIL_ADDRESS", "Email addresses"], ["PHONE_NUMBER", "Phone numbers"], ["US_BANK_NUMBER", "Bank account numbers"],
 ];
 
+function useSystemReadiness() {
+  const [readiness, setReadiness] = useState(null);
+  const [readinessError, setReadinessError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/system/readiness", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Readiness check failed");
+        return response.json();
+      })
+      .then((payload) => { if (active) setReadiness(payload); })
+      .catch(() => { if (active) setReadinessError(true); });
+    return () => { active = false; };
+  }, []);
+  return { readiness, readinessError };
+}
+
 function TrustPage() {
   const { cap, settings, setSettings, struck, setStruck, ruleSources, quotes, askReset } = useApp();
+  const { readiness, readinessError } = useSystemReadiness();
   const used = [...new Set(RULES.flatMap((r) => ruleSources(r.id)).concat(cap.asked.map((a) => a.id)))].filter((q) => quotes[q]);
   const setR = (k) => setSettings((s) => ({ ...s, redact: { ...s.redact, [k]: !s.redact[k] } }));
   const sample = "Census row 214: Maria Gonzalez, SSN 412-55-0193, base salary $142,000, maria.gonzalez@atlasfleet.com, (312) 555-0147.";
@@ -2008,7 +2046,23 @@ function TrustPage() {
   return (
     <>
       <PageHead title="Trust and privacy"
-        lede={`${EXPERT.first} decides what's kept. She can go off the record at any time, strike her own words afterwards, and personal data from the data room is redacted before a frame leaves the browser. Settings on this page apply immediately.`} />
+        lede={`${EXPERT.first} decides what's kept. She can go off the record at any time and strike her own words afterwards. Transcript redaction and frame handling have different readiness levels, shown below.`} />
+      <Card title="Runtime truth" extra={readiness && <Badge tone={readiness.sensitive_data_ready ? "verified" : "pending"}>{readiness.sensitive_data_ready ? "Sensitive data ready" : "Synthetic data only"}</Badge>}>
+        {readinessError && <p className="notice critical">The readiness endpoint could not be checked. Treat this run as synthetic-only.</p>}
+        {!readiness && !readinessError && <p className="empty">Checking configured services…</p>}
+        {readiness && <div className="stack tight">
+          <p className="t-sec">The workflow logic is operational with fictional data. Sensitive-data use remains blocked until every production boundary is implemented and verified.</p>
+          <div className="grid g2">
+            {Object.entries(readiness.capabilities).map(([name, capability]) => (
+              <div className="inset" key={name}>
+                <div className="row"><strong>{name.replaceAll("_", " ")}</strong><span className="spacer" /><Badge tone={capability.state === "live" ? "verified" : capability.state === "demo" ? "pending" : "critical"}>{capability.state}</Badge></div>
+                <p className="t-sec" style={{ marginTop: 4 }}>{capability.detail}</p>
+              </div>
+            ))}
+          </div>
+          {readiness.blockers.length > 0 && <details><summary className="link">Why sensitive data is blocked</summary><ul>{readiness.blockers.map((blocker) => <li className="t-sec" key={blocker}>{blocker}</li>)}</ul></details>}
+        </div>}
+      </Card>
       <div className="grid g2" style={{ alignItems: "start" }}>
         <div className="stack">
           <Card title="Off the record">
@@ -2030,7 +2084,7 @@ function TrustPage() {
         </div>
         <div className="stack">
           <Card title="Personal data on screen">
-            <p className="t-sec" style={{ marginBottom: 4 }}>Detected with Microsoft Presidio, plus a custom recognizer for compensation, on every frame and transcript line, before anything goes to a model.</p>
+            <p className="t-sec" style={{ marginBottom: 4 }}>This control previews the intended masking policy. The hosted Presidio boundary currently applies to transcript text only. Server-side frame redaction and vision extraction are not implemented, so Apprentice screen-share frames stay local.</p>
             {ENTITIES.map(([k, l]) => (
               <div className="setting" key={k}><span id={"lbl-" + k}>{l}</span>
                 <button className="switch" role="switch" aria-checked={!!R[k]} aria-labelledby={"lbl-" + k} onClick={() => setR(k)} /></div>))}
@@ -2059,7 +2113,7 @@ function TrustPage() {
             <div className="setting"><label htmlFor="ret">Delete recordings after</label>
               <select id="ret" className="input" value={settings.retention} onChange={(e) => setSettings((s) => ({ ...s, retention: e.target.value }))}>
                 <option value="0">The Work Map is verified</option><option value="30">30 days</option><option value="90">90 days</option></select></div>
-            <p className="t-sec" style={{ margin: "8px 0 12px" }}>The Work Map keeps events, short screen moments and verified quotes. Full video is never stored, and no file leaves the data room permissions of this deal.</p>
+            <p className="t-sec" style={{ margin: "8px 0 12px" }}>The Apprentice page does not upload full video or shared-screen frames. The separate Deal Desk can retain sampled frames only after explicit opt-in. Data-room permission integration is not implemented.</p>
             <button className="btn" onClick={() => askReset("delete")}>Delete this session</button>
           </Card>
         </div>
@@ -2115,7 +2169,7 @@ function Sidebar() {
       <NavList />
       <div className="side-foot">
         <button className="btn compact" aria-pressed={voice} onClick={() => setVoice((v) => !v)}>{voice ? <Volume2 size={13} aria-hidden /> : <VolumeX size={13} aria-hidden />} Voice preview</button>
-        <span className="t-cap">Browser speech stands in for ElevenAgents.</span>
+        <span className="t-cap">Browser speech is the fallback; the live Interviewer is on Capture.</span>
         <span className="t-cap" role="status">{saveStatus}</span>
       </div>
     </aside>
@@ -2349,6 +2403,7 @@ export default function App() {
     page, go, cap, setCap, gaps, setGaps, claims, setClaims, signed, setSigned, workMap, buildWorkMap, workMapStatus, struck, setStruck, quotes, addQuote,
     claimText, ruleSources, ruleEvidence, isVerified, sel, mapStep, setMapStep, teach, setTeach, settings, setSettings,
     voice, setVoice, fillDemo, resetAll, askReset, announce, saveStatus,
+    getApprenticeSessionId,
   };
   const Page = { overview: OverviewPage, capture: CapturePage, debrief: DebriefPage, map: WorkMapPage, teach: TeachPage,
     results: ResultsPage, export: ExportPage, trust: TrustPage }[page] || NotFoundPage;
