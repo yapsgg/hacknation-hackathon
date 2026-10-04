@@ -61,6 +61,61 @@ test("enforced authorization checks origin and matching HttpOnly capability", ()
       sessionId
     )
     assert.equal(crossOrigin.status, 403)
+
+    // The framework may rebuild request.url from its bind hostname; the Host
+    // header names what the client really addressed.
+    const rebuiltUrl = authorizeSessionRequest(
+      new Request("http://localhost:3200/api/events", {
+        method: "POST",
+        headers: {
+          origin: "http://127.0.0.1:3200",
+          host: "127.0.0.1:3200",
+          cookie: `${sessionCookieName(sessionId)}=${token}`,
+        },
+      }),
+      sessionId
+    )
+    assert.equal(rebuiltUrl.ok, true)
+
+    const proxied = authorizeSessionRequest(
+      new Request("http://internal:3000/api/events", {
+        method: "POST",
+        headers: {
+          origin: "https://app.example",
+          "x-forwarded-host": "app.example",
+          "x-forwarded-proto": "https",
+          cookie: `${sessionCookieName(sessionId)}=${token}`,
+        },
+      }),
+      sessionId
+    )
+    assert.equal(proxied.ok, true)
+
+    const foreignWithHost = authorizeSessionRequest(
+      new Request("http://localhost:3200/api/events", {
+        method: "POST",
+        headers: {
+          origin: "https://evil.example",
+          host: "127.0.0.1:3200",
+          cookie: `${sessionCookieName(sessionId)}=${token}`,
+        },
+      }),
+      sessionId
+    )
+    assert.equal(foreignWithHost.status, 403)
+
+    const wrongScheme = authorizeSessionRequest(
+      new Request("http://localhost:3200/api/events", {
+        method: "POST",
+        headers: {
+          origin: "https://127.0.0.1:3200",
+          host: "127.0.0.1:3200",
+          cookie: `${sessionCookieName(sessionId)}=${token}`,
+        },
+      }),
+      sessionId
+    )
+    assert.equal(wrongScheme.status, 403)
   } finally {
     if (previousMode === undefined) delete process.env.APP_SECURITY_MODE
     else process.env.APP_SECURITY_MODE = previousMode
