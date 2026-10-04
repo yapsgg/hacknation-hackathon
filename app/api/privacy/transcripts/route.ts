@@ -2,6 +2,11 @@ import { NextResponse } from "next/server"
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import { redactTranscript } from "@/lib/privacy"
+import { checkRateLimit, rateLimitResponse } from "@/lib/security/rate-limit"
+import {
+  authorizeSessionRequest,
+  sessionAuthorizationResponse,
+} from "@/lib/security/session-capability"
 
 export const runtime = "nodejs"
 
@@ -33,6 +38,15 @@ export function purgeMemoryTranscripts(
 }
 
 export async function POST(request: Request) {
+  const limited = rateLimitResponse(
+    checkRateLimit(request, {
+      namespace: "transcript-store",
+      limit: 120,
+      windowMs: 60_000,
+    })
+  )
+  if (limited) return limited
+
   let body: unknown
   try {
     body = await request.json()
@@ -53,6 +67,11 @@ export async function POST(request: Request) {
   ) {
     return NextResponse.json({ error: "Invalid transcript" }, { status: 422 })
   }
+
+  const unauthorized = sessionAuthorizationResponse(
+    authorizeSessionRequest(request, session_id)
+  )
+  if (unauthorized) return unauthorized
 
   try {
     const redacted = await redactTranscript(text)
@@ -85,7 +104,8 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Transcript storage failed",
+        error:
+          error instanceof Error ? error.message : "Transcript storage failed",
         storage_blocked: true,
       },
       { status: 502 }

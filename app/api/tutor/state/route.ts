@@ -4,6 +4,10 @@ import { recordAudit } from "@/lib/audit"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import { INITIAL_MASTERY, TUTOR_RULES } from "@/lib/tutor"
 import type { MasteryState } from "@/lib/types"
+import {
+  authorizeSessionRequest,
+  sessionAuthorizationResponse,
+} from "@/lib/security/session-capability"
 
 export const runtime = "nodejs"
 
@@ -49,6 +53,10 @@ export async function GET(request: Request) {
   if (!sessionId || !UUID_RE.test(sessionId)) {
     return NextResponse.json({ error: "session_id required" }, { status: 422 })
   }
+  const unauthorized = sessionAuthorizationResponse(
+    authorizeSessionRequest(request, sessionId)
+  )
+  if (unauthorized) return unauthorized
 
   try {
     const supabase = await ensureSession(sessionId)
@@ -68,13 +76,19 @@ export async function GET(request: Request) {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
-      supabase.from("mastery").select("rule_id,state").eq("session_id", sessionId),
+      supabase
+        .from("mastery")
+        .select("rule_id,state")
+        .eq("session_id", sessionId),
     ])
     if (workMap.error) throw new Error(workMap.error.message)
     if (mastery.error) throw new Error(mastery.error.message)
 
     const persisted = Object.fromEntries(
-      (mastery.data ?? []).map((row) => [row.rule_id, row.state as MasteryState])
+      (mastery.data ?? []).map((row) => [
+        row.rule_id,
+        row.state as MasteryState,
+      ])
     )
     return NextResponse.json({
       store: "supabase",
@@ -101,6 +115,10 @@ export async function PATCH(request: Request) {
   if (typeof sessionId !== "string" || !UUID_RE.test(sessionId)) {
     return NextResponse.json({ error: "Invalid session_id" }, { status: 422 })
   }
+  const unauthorized = sessionAuthorizationResponse(
+    authorizeSessionRequest(request, sessionId)
+  )
+  if (unauthorized) return unauthorized
 
   try {
     const supabase = await ensureSession(sessionId)
@@ -113,7 +131,10 @@ export async function PATCH(request: Request) {
         typeof state !== "string" ||
         !VALID_STATES.has(state as MasteryState)
       ) {
-        return NextResponse.json({ error: "Invalid mastery update" }, { status: 422 })
+        return NextResponse.json(
+          { error: "Invalid mastery update" },
+          { status: 422 }
+        )
       }
 
       if (!supabase) {
@@ -121,14 +142,21 @@ export async function PATCH(request: Request) {
           ...(memory.mastery[sessionId] ?? {}),
           [ruleId]: state as MasteryState,
         }
-        memory.audit.push({ sessionId, action: "mastery_updated", ruleId, state })
+        memory.audit.push({
+          sessionId,
+          action: "mastery_updated",
+          ruleId,
+          state,
+        })
         return NextResponse.json({ ok: true, store: "memory" })
       }
 
-      const updated = await supabase.from("mastery").upsert(
-        { session_id: sessionId, rule_id: ruleId, state },
-        { onConflict: "session_id,rule_id" }
-      )
+      const updated = await supabase
+        .from("mastery")
+        .upsert(
+          { session_id: sessionId, rule_id: ruleId, state },
+          { onConflict: "session_id,rule_id" }
+        )
       if (updated.error) throw new Error(updated.error.message)
       const auditPersisted = await recordAudit(supabase, {
         sessionId,
@@ -142,7 +170,10 @@ export async function PATCH(request: Request) {
       const approved = input.approved
       if (!supabase) {
         memory.approved = approved
-        memory.audit.push({ sessionId, action: approved ? "work_map_approved" : "work_map_revoked" })
+        memory.audit.push({
+          sessionId,
+          action: approved ? "work_map_approved" : "work_map_revoked",
+        })
         return NextResponse.json({ ok: true, store: "memory", approved })
       }
 

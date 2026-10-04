@@ -1,0 +1,22 @@
+services:
+  analyzer:
+    image: ghcr.io/data-privacy-stack/presidio-analyzer:${PRESIDIO_VERSION:-latest}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5002:3000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  image-redactor:
+    image: ghcr.io/data-privacy-stack/presidio-image-redactor:${PRESIDIO_VERSION:-latest}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5003:3000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true

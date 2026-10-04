@@ -23,6 +23,7 @@ import {
 } from "@/lib/apprentice-demo";
 import { evaluateQuestionSlot, QUESTION_GOVERNOR_POLICY } from "@/lib/question-governor";
 import { LiveInterviewer } from "@/components/apprentice/live-interviewer";
+import { sessionFetch } from "@/lib/session-client";
 
 /* ------------------------------------------------------------------
    The AI Apprentice: starter UI, rebuilt on the Mono design practices.
@@ -2271,7 +2272,7 @@ export default function App() {
       } catch { /* ignore invalid local demo state */ }
 
       try {
-        const response = await fetch(`/api/apprentice/state?session_id=${encodeURIComponent(sessionId)}`);
+        const response = await sessionFetch(sessionId, `/api/apprentice/state?session_id=${encodeURIComponent(sessionId)}`);
         if (response.ok) {
           const payload = await response.json();
           if (!cancelled && payload.state) restored = restoreState(payload.state);
@@ -2329,7 +2330,7 @@ export default function App() {
     const timer = window.setTimeout(async () => {
       setSaveStatus("Saving…");
       try {
-        const response = await fetch(`/api/apprentice/state?session_id=${encodeURIComponent(sessionId)}`, {
+        const response = await sessionFetch(sessionId, `/api/apprentice/state?session_id=${encodeURIComponent(sessionId)}`, {
           method: "PUT",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ state: persistedState }),
@@ -2359,11 +2360,12 @@ export default function App() {
       ...GAPS.filter((gap) => gaps[gap.id] === "answered").map((gap) => ({ id: gap.id, step_id: gap.step, asked_t: quotes[gap.id]?.t ?? END_T, answer: quotes[gap.id]?.en })).filter((item) => item.answer),
     ];
     try {
-      const response = await fetch("/api/work-map", {
+      const sessionId = getApprenticeSessionId();
+      const response = await sessionFetch(sessionId, "/api/work-map", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          session_id: getApprenticeSessionId(),
+          session_id: sessionId,
           expert: EXPERT.name,
           events: cap.events.map((event) => event.raw).filter(Boolean),
           answers,
@@ -2389,7 +2391,7 @@ export default function App() {
     setTeach({ log: [], saved: {}, preds: {}, forms: {}, msgs: {} }); setMapStep(5); setPage("overview");
     const sessionId = getApprenticeSessionId();
     window.localStorage.removeItem(`apprentice-state:${sessionId}`);
-    void fetch(`/api/apprentice/state?session_id=${encodeURIComponent(sessionId)}`, { method: "DELETE" });
+    void sessionFetch(sessionId, `/api/apprentice/state?session_id=${encodeURIComponent(sessionId)}`, { method: "DELETE" });
   };
   const fillDemo = () => {
     setCap((c) => (c.done ? c : runToEnd(initCap())));

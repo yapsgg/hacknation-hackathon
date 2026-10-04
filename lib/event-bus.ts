@@ -1,4 +1,5 @@
 import type { CaptureEvent } from "./types"
+import { sessionFetch } from "./session-client"
 
 type Listener = () => void
 
@@ -101,9 +102,22 @@ export function emitAppEvent(input: AppEventInput): CaptureEvent | null {
   return event
 }
 
+export function emitVisionEvent(event: CaptureEvent): CaptureEvent | null {
+  if (paused || event.source !== "vision") return null
+  const normalized: CaptureEvent = {
+    ...event,
+    t: Number(event.t.toFixed(2)),
+    source: "vision",
+  }
+  events = [...events, normalized]
+  notify()
+  void publish(normalized)
+  return normalized
+}
+
 async function publish(event: CaptureEvent): Promise<void> {
   try {
-    await fetch("/api/events", {
+    await sessionFetch(sessionId, "/api/events", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ session_id: sessionId, event }),

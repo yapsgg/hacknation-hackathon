@@ -80,11 +80,20 @@ export async function redactTranscript(text: string): Promise<RedactionResult> {
   const baseUrl = process.env.PRESIDIO_ANALYZER_URL?.trim()
   if (!baseUrl) return redactLocally(text)
 
+  const configuredTimeout = Number(process.env.PRESIDIO_TIMEOUT_MS)
+  const timeoutMs =
+    Number.isFinite(configuredTimeout) &&
+    configuredTimeout >= 500 &&
+    configuredTimeout <= 30_000
+      ? configuredTimeout
+      : 5_000
+
   const response = await fetch(`${baseUrl.replace(/\/$/, "")}/analyze`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ text, language: "en" }),
     cache: "no-store",
+    signal: AbortSignal.timeout(timeoutMs),
   })
   if (!response.ok) {
     throw new Error(`Presidio returned ${response.status}`)

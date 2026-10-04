@@ -1,5 +1,9 @@
 # Handoff: Supabase, ElevenAgents, Vercel, and integration status
 
+> The original phase handoff below is retained for history. For the current
+> security, vision, Presidio, Realtime, and acceptance status, use
+> `docs/PRODUCTION_BOUNDARIES.md` and `GET /api/system/readiness`.
+
 No secrets are stored here. Ask the owner for keys through a private channel.
 
 The infrastructure items below were reported complete by the infrastructure owner on 2026-10-03. Re-run the live acceptance checks after the UI integration because the current local account cannot inspect the owner's Vercel team or secrets.

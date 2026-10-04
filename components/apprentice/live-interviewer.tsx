@@ -12,6 +12,8 @@ import {
 } from "@elevenlabs/react"
 import { Mic, MicOff, PhoneOff } from "lucide-react"
 
+import { sessionFetch } from "@/lib/session-client"
+
 interface InterviewerSlot {
   id: string
   q: string
@@ -43,7 +45,7 @@ async function updateInterviewState(
   action: string,
   parameters: Record<string, unknown>
 ) {
-  const response = await fetch("/api/interviewer/state", {
+  const response = await sessionFetch(sessionId, "/api/interviewer/state", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ session_id: sessionId, action, ...parameters }),
@@ -63,7 +65,7 @@ export function LiveInterviewer(props: LiveInterviewerProps) {
   const onMessage = React.useCallback(
     (message: MessagePayload) => {
       if (props.offRecord || !message.message.trim()) return
-      void fetch("/api/privacy/transcripts", {
+      void sessionFetch(props.sessionId, "/api/privacy/transcripts", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -152,7 +154,7 @@ function LiveInterviewerContent({
     const from = active ? Math.max(0, now - 15) : (offRecordFrom.current ?? now)
     if (active) offRecordFrom.current = now
     onOffRecordChange(active)
-    const response = await fetch("/api/privacy/purge", {
+    const response = await sessionFetch(sessionId, "/api/privacy/purge", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ session_id: sessionId, from, to: now }),
@@ -166,9 +168,13 @@ function LiveInterviewerContent({
     setStartError(null)
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true })
-      const response = await fetch("/api/interviewer/session", {
-        method: "POST",
-      })
+      const response = await sessionFetch(
+        sessionId,
+        "/api/interviewer/session",
+        {
+          method: "POST",
+        }
+      )
       const payload = (await response.json()) as {
         signed_url?: string
         error?: string

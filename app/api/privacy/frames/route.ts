@@ -6,6 +6,11 @@ import {
   rememberMemoryFrame,
 } from "@/lib/frame-storage"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
+import { checkRateLimit, rateLimitResponse } from "@/lib/security/rate-limit"
+import {
+  authorizeSessionRequest,
+  sessionAuthorizationResponse,
+} from "@/lib/security/session-capability"
 
 export const runtime = "nodejs"
 
@@ -13,6 +18,15 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const DATA_URL_RE = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/
 export async function POST(request: Request) {
+  const limited = rateLimitResponse(
+    checkRateLimit(request, {
+      namespace: "frame-store",
+      limit: 30,
+      windowMs: 60_000,
+    })
+  )
+  if (limited) return limited
+
   let body: unknown
   try {
     body = await request.json()
@@ -42,6 +56,11 @@ export async function POST(request: Request) {
   if (bytes.length > 250_000) {
     return NextResponse.json({ error: "Frame exceeds 250KB" }, { status: 413 })
   }
+
+  const unauthorized = sessionAuthorizationResponse(
+    authorizeSessionRequest(request, session_id)
+  )
+  if (unauthorized) return unauthorized
 
   const path = `${session_id}/${t.toFixed(3)}-${frame_id}.jpg`
   const supabase = getSupabaseAdmin()

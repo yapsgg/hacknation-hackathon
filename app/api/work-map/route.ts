@@ -8,6 +8,10 @@ import {
   type WorkMapAnswer,
   type WorkMapCorrection,
 } from "@/lib/work-map-builder"
+import {
+  authorizeSessionRequest,
+  sessionAuthorizationResponse,
+} from "@/lib/security/session-capability"
 
 export const runtime = "nodejs"
 
@@ -33,7 +37,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function validText(value: unknown, max = 2_000): value is string {
-  return typeof value === "string" && value.trim().length > 0 && value.length <= max
+  return (
+    typeof value === "string" && value.trim().length > 0 && value.length <= max
+  )
 }
 
 function validEvent(value: unknown): value is CaptureEvent {
@@ -44,7 +50,9 @@ function validEvent(value: unknown): value is CaptureEvent {
     typeof value.type === "string" &&
     EVENT_TYPES.has(value.type) &&
     validText(value.object, 1_000) &&
-    (value.field === undefined || value.field === null || typeof value.field === "string") &&
+    (value.field === undefined ||
+      value.field === null ||
+      typeof value.field === "string") &&
     (value.salient_text === undefined ||
       (Array.isArray(value.salient_text) &&
         value.salient_text.length <= 50 &&
@@ -81,8 +89,10 @@ function validGap(value: unknown): value is WorkMapGap {
     (value.step_id === undefined ||
       value.step_id === null ||
       (Number.isInteger(value.step_id) && Number(value.step_id) > 0)) &&
-    (value.risk === undefined || ["high", "medium", "low"].includes(String(value.risk))) &&
-    (value.status === undefined || ["open", "closed", "waived"].includes(String(value.status)))
+    (value.risk === undefined ||
+      ["high", "medium", "low"].includes(String(value.risk))) &&
+    (value.status === undefined ||
+      ["open", "closed", "waived"].includes(String(value.status)))
   )
 }
 
@@ -106,6 +116,10 @@ export async function GET(request: Request) {
   if (!sessionId) {
     return NextResponse.json({ error: "session_id required" }, { status: 422 })
   }
+  const unauthorized = sessionAuthorizationResponse(
+    authorizeSessionRequest(request, sessionId)
+  )
+  if (unauthorized) return unauthorized
 
   try {
     const supabase = await ensureSession(sessionId)
@@ -131,7 +145,9 @@ export async function GET(request: Request) {
     })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Work Map read failed" },
+      {
+        error: error instanceof Error ? error.message : "Work Map read failed",
+      },
       { status: 500 }
     )
   }
@@ -140,7 +156,10 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const raw = await request.text()
   if (Buffer.byteLength(raw, "utf8") > MAX_BODY_BYTES) {
-    return NextResponse.json({ error: "Work Map payload too large" }, { status: 413 })
+    return NextResponse.json(
+      { error: "Work Map payload too large" },
+      { status: 413 }
+    )
   }
 
   let body: unknown
@@ -149,9 +168,17 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
-  if (!isRecord(body) || typeof body.session_id !== "string" || !UUID_RE.test(body.session_id)) {
+  if (
+    !isRecord(body) ||
+    typeof body.session_id !== "string" ||
+    !UUID_RE.test(body.session_id)
+  ) {
     return NextResponse.json({ error: "Invalid session_id" }, { status: 422 })
   }
+  const unauthorized = sessionAuthorizationResponse(
+    authorizeSessionRequest(request, body.session_id)
+  )
+  if (unauthorized) return unauthorized
 
   const events = body.events
   const answers = body.answers ?? []
@@ -172,11 +199,19 @@ export async function POST(request: Request) {
     corrections.length > 100 ||
     !corrections.every(validCorrection) ||
     !Array.isArray(confirmedStepIds) ||
-    !confirmedStepIds.every((value) => Number.isInteger(value) && Number(value) > 0) ||
-    (body.confirmed_by_expert !== undefined && typeof body.confirmed_by_expert !== "boolean") ||
-    (body.expert !== undefined && body.expert !== null && !validText(body.expert, 200))
+    !confirmedStepIds.every(
+      (value) => Number.isInteger(value) && Number(value) > 0
+    ) ||
+    (body.confirmed_by_expert !== undefined &&
+      typeof body.confirmed_by_expert !== "boolean") ||
+    (body.expert !== undefined &&
+      body.expert !== null &&
+      !validText(body.expert, 200))
   ) {
-    return NextResponse.json({ error: "Invalid Work Map evidence" }, { status: 422 })
+    return NextResponse.json(
+      { error: "Invalid Work Map evidence" },
+      { status: 422 }
+    )
   }
 
   try {
@@ -220,7 +255,9 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Work Map build failed" },
+      {
+        error: error instanceof Error ? error.message : "Work Map build failed",
+      },
       { status: 500 }
     )
   }

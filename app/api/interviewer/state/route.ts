@@ -3,6 +3,10 @@ import { NextResponse } from "next/server"
 import { recordAudit } from "@/lib/audit"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import type { GapRisk, GapStatus } from "@/lib/types"
+import {
+  authorizeSessionRequest,
+  sessionAuthorizationResponse,
+} from "@/lib/security/session-capability"
 
 export const runtime = "nodejs"
 
@@ -111,6 +115,10 @@ export async function GET(request: Request) {
   if (!sessionId || !UUID_RE.test(sessionId)) {
     return NextResponse.json({ error: "session_id required" }, { status: 422 })
   }
+  const unauthorized = sessionAuthorizationResponse(
+    authorizeSessionRequest(request, sessionId)
+  )
+  if (unauthorized) return unauthorized
   try {
     return NextResponse.json(await readState(sessionId))
   } catch (error) {
@@ -136,6 +144,10 @@ export async function POST(request: Request) {
   if (typeof sessionId !== "string" || !UUID_RE.test(sessionId)) {
     return NextResponse.json({ error: "Invalid session_id" }, { status: 422 })
   }
+  const unauthorized = sessionAuthorizationResponse(
+    authorizeSessionRequest(request, sessionId)
+  )
+  if (unauthorized) return unauthorized
 
   try {
     const supabase = await ensureSession(sessionId)
