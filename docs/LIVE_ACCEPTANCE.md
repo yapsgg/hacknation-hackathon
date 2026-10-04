@@ -226,5 +226,11 @@ attach `.env.local` or any key.
 - 403 "Cross-origin or originless mutation rejected" in enforce mode: open the
   app at the same host you used in the address bar when you claimed the session
   (`127.0.0.1` vs `localhost` are different origins).
+- The Voice panel shows **"Permission denied"**: Chrome (or macOS System
+  Settings > Privacy & Security > Microphone) is blocking the mic for that
+  origin. Allow it and retry.
+- The Voice panel shows an SDK error text you do not recognize: this is the
+  ElevenLabs client's own message (bad voice model, plan limit, dropped socket).
+  Copy it verbatim when reporting.
 - Every acceptance line fails with connection errors: the server is not on the
   base URL you passed.
