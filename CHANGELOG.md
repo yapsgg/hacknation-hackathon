@@ -343,6 +343,16 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 ---
 
+## [0.0.18] — 2026-10-03
+
+### Done (production dependency security gate)
+
+- **Production audit clean** — `npm audit --omit=dev` reports zero production vulnerabilities.
+- **CI enforcement** — every pull request and push to `testing` or `main` now fails if a high-severity production dependency advisory is introduced.
+- **Unsafe downgrade avoided** — the remaining nine audit findings are confined to development-only lint and scaffolding paths; npm's proposed forced remediation would downgrade the active Next.js and Shadcn toolchains, so it is intentionally not applied.
+
+---
+
 ## Next Steps (to finish the app)
 
 Ordered by the build priority in `ARCHITECTURE.md` §8. Each item lists concrete deliverables and a definition of done.
