@@ -112,6 +112,11 @@ The generator reconciles old unchecked checklist items against later Done sectio
 - [x] **Production audit clean** — `npm audit --omit=dev` reports zero production vulnerabilities. _(source: [0.0.18] — 2026-10-03 / Done (production dependency security gate))_
 - [x] **CI enforcement** — every pull request and push to `testing` or `main` now fails if a high-severity production dependency advisory is introduced. _(source: [0.0.18] — 2026-10-03 / Done (production dependency security gate))_
 - [x] **Unsafe downgrade avoided** — the remaining nine audit findings are confined to development-only lint and scaffolding paths; npm's proposed forced remediation would downgrade the active Next.js and Shadcn toolchains, so it is intentionally not applied. _(source: [0.0.18] — 2026-10-03 / Done (production dependency security gate))_
+- [x] **Deterministic Work Map compiler** — captured events now replace seeded screen evidence, answered questions replace reason quotes, expert corrections replace decisions, and each step receives a confirmed/corrected/unresolved status without requiring a model key. _(source: [0.0.19] — 2026-10-03 / Done (session-built Work Map + developer handoff))_
+- [x] **Validated Work Map API** — `POST /api/work-map` compiles and stores a per-session map; `GET /api/work-map?session_id=` retrieves the latest map through Supabase or the explicit in-process fallback. _(source: [0.0.19] — 2026-10-03 / Done (session-built Work Map + developer handoff))_
+- [x] **Integrated expert sign-off** — `/apprentice` now compiles the session Work Map before marking teach-back complete, persists it with the rest of the UI state, and reports event/correction evidence in the Work Map view. _(source: [0.0.19] — 2026-10-03 / Done (session-built Work Map + developer handoff))_
+- [x] **Regression coverage** — the compiler's evidence mapping and correction behavior plus API validation, storage, and retrieval are covered by the Phase 2/3 suite. _(source: [0.0.19] — 2026-10-03 / Done (session-built Work Map + developer handoff))_
+- [x] **Developer handoff** — the README and `docs/LOCAL_DEVELOPMENT.md` document the no-key demo, optional service variables, safe local binding, validation commands, and conflict-minimizing branch workflow. _(source: [0.0.19] — 2026-10-03 / Done (session-built Work Map + developer handoff))_
 - [x] **Define shared schemas** — create `/schemas/` with `event.schema.json` and `work-map.schema.json` exactly as specified in `ARCHITECTURE.md` §2–3. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
 - [x] **Client tool contract** — agree on names and signatures: `get_screen_state`, `log_question`, `mark_gap`, `start_debrief`, `submit_teachback_result`, `block_commit`, `replay_moment`, `update_mastery`, `lookup_guardrail`, `get_expert_moment`. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
 - [x] **Mock event stream** — `fixtures/events.mock.json` so each engineer can develop independently. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
@@ -123,6 +128,10 @@ The generator reconciles old unchecked checklist items against later Done sectio
 - [x] **Screen capture** — `getDisplayMedia` → canvas → 1 fps sampling with a frame-diff gate. _(source: Next Steps (to finish the app) / Phase 1 — Sandbox "Deal Desk" app (0:30–2:30))_
 - [x] **Hello-world deploy to Vercel** — prove the deploy path in hour 1. _(source: Next Steps (to finish the app) / Phase 1 — Sandbox "Deal Desk" app (0:30–2:30))_
 - [x] **Question Governor** — deterministic pause gate (1.8 s voice silence + 1.5 s interaction idle + no scrolling + 45 s cooldown + trigger event), question scoring, five-per-ten-minute budget, and forced guardrail coverage are integrated into `/apprentice` Capture. _(source: Next Steps (to finish the app) / Phase 2 — Capture intelligence (0:30–2:30, Engineer A))_
+- [x] **Gap Ledger** — tracks open/unanswered questions per step with risk and resolution state. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
+- [x] **Work Map builder** — deterministic no-key compiler merges events, answers, corrections, and gaps into schema-compatible Work Map JSON; a live model can augment it later. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
+- [x] **Debrief controller** — gap analysis, ≥3 risk-prioritized follow-ups, teach-back, correction diff, done criteria. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
+- [x] **Work Map UI** (Engineer B) — clickable timeline, per-step screen moment, reason quote, guardrails; teach-back checklist the expert ticks. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
 - [x] **Tutor agent** — second ElevenAgents agent; Work Map JSON in knowledge base; `lookup_guardrail` client tool reading the guardrail list. _(source: Next Steps (to finish the app) / Phase 4 — Teach / Tutor (3:30–4:30))_
 - [x] **`block_commit(reason, step_id)`** — pre-commit interceptor freezes Save and shows an overlay. _(source: Next Steps (to finish the app) / Phase 4 — Teach / Tutor (3:30–4:30))_
 - [x] **`replay_moment(step_id)`** — replay the expert's clip (fallback: static screenshot). _(source: Next Steps (to finish the app) / Phase 4 — Teach / Tutor (3:30–4:30))_
@@ -146,15 +155,13 @@ The generator reconciles old unchecked checklist items against later Done sectio
 - [ ] Build the Work Map draft from events, redacted transcripts, answers, and gaps instead of relying only on the seeded fixture. _(source: [0.0.13] — 2026-10-04 / Still open before Phase 2/3 is complete)_
 - [ ] Replace browser speech preview with the provisioned ElevenAgents Interviewer and Tutor sessions. _(source: [0.0.14] — 2026-10-04 / Still open for the imported prototype)_
 - [ ] Feed real ElevenAgents VAD, user-interaction idle time, document-scroll state, and redacted server-side vision events into the same Capture signal adapter. _(source: [0.0.17] — 2026-10-03 / Still open for live capture)_
+- [ ] Replace the deterministic compiler with, or augment it by, a privacy-reviewed structured-output model after vision and transcript inputs are available. _(source: [0.0.19] — 2026-10-03 / Still open for the live path)_
+- [ ] Stream session events, questions, and gaps into the browser through Supabase Realtime. _(source: [0.0.19] — 2026-10-03 / Still open for the live path)_
 - [ ] **ElevenAgents interviewer** — create agent, set voice + Expressive Mode, write the interviewer system prompt (`ARCHITECTURE.md` §6), get a bare-page voice conversation working. _(source: Next Steps (to finish the app) / Phase 2 — Capture intelligence (0:30–2:30, Engineer A))_
 - [ ] **Vision loop** — send previous-state summary + new frame to the vision model with structured output matching the event schema; extract `salient_text`. _(source: Next Steps (to finish the app) / Phase 2 — Capture intelligence (0:30–2:30, Engineer A))_
 - [ ] **Context pusher** — push a compact rolling summary to the agent as non-interrupting contextual updates. _(source: Next Steps (to finish the app) / Phase 2 — Capture intelligence (0:30–2:30, Engineer A))_
 - [ ] **`get_screen_state()` client tool** — lets the agent pull the latest state before asking. _(source: Next Steps (to finish the app) / Phase 2 — Capture intelligence (0:30–2:30, Engineer A))_
 - [ ] **Event normalizer + session store** — persist `sessions` and `events` to Supabase; stream via Supabase Realtime. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
-- [ ] **Gap Ledger** — track open/unanswered questions per step. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
-- [ ] **Work Map builder** — LLM merges events + transcript + answers into the Work Map JSON; each step carries `t`, `quote`, `judgment_call`, `status`. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
-- [ ] **Debrief controller** — gap analysis, ≥3 risk-prioritized follow-ups, teach-back, correction diff, done criteria. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
-- [ ] **Work Map UI** (Engineer B) — clickable timeline, per-step screen moment, reason quote, guardrails; teach-back checklist the expert ticks. _(source: Next Steps (to finish the app) / Phase 3 — Map + Debrief (2:30–3:15, Engineer A))_
 - [ ] **Pre-bake the Work Map** — run one full session, save JSON, add a "load saved map" button so Teach never depends on a live build. _(source: Next Steps (to finish the app) / Phase 6 — Polish, Export & Rehearsal (4:30–6:00))_
 - [ ] **Recorded fallback session** — for wifi/mic failure at demo time. _(source: Next Steps (to finish the app) / Phase 6 — Polish, Export & Rehearsal (4:30–6:00))_
 - [ ] **Pitch deck** — 5 slides incl. moonshot + the five Apprentice Test answers on one slide. _(source: Next Steps (to finish the app) / Phase 6 — Polish, Export & Rehearsal (4:30–6:00))_
@@ -177,12 +184,13 @@ The generator reconciles old unchecked checklist items against later Done sectio
 - [ ] Exercise one real microphone conversation on the deployed preview; local automated tests cannot authenticate without the team credentials. _(source: [0.0.8] — 2026-10-04 / Deployment action required for Phase 4)_
 - [ ] Connect redacted server-side vision events to the Capture screen; the Phase 2 Question Governor is now wired to the seeded no-key stream. _(source: [0.0.14] — 2026-10-04 / Still open for the imported prototype)_
 - [ ] Apply `supabase/migrations/0003_apprentice_state.sql` to the live Supabase project to enable cross-device `/apprentice` restoration. Until then, the browser fallback remains functional. _(source: [0.0.16] — 2026-10-03 / Still open for deployment)_
+- [ ] Run the credentialed microphone, screen-share, Presidio, Supabase, and Vercel acceptance checks listed below. _(source: [0.0.19] — 2026-10-03 / Still open for the live path)_
 
 ## Recommended execution order
 
-1. Reconcile the imported `/apprentice` rules with the canonical Work Map and persistence APIs.
-2. Connect the Interviewer UI, Question Governor signals, and privacy-safe vision extractor.
-3. Complete the dynamic Work Map builder and browser Realtime path.
+1. Connect the Interviewer UI and feed live VAD/idle/scroll signals into the Question Governor.
+2. Add the privacy-safe vision extractor and browser Realtime subscriptions.
+3. Augment the deterministic Work Map compiler with structured model output after redacted live inputs are available.
 4. Configure Presidio and judge-safe Vercel access, then repeat live privacy and microphone checks.
 5. Build the recorded fallback, production dry-runs, and final demo materials.
 6. Re-run `npm run todo` after every merged phase.

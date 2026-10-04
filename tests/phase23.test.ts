@@ -6,10 +6,17 @@ import {
   POST as updateInterviewState,
 } from "../app/api/interviewer/state/route"
 import {
+  GET as getWorkMap,
+  POST as createWorkMap,
+} from "../app/api/work-map/route"
+import eventsFixture from "../fixtures/events.mock.json"
+import {
   evaluateQuestionSlot,
   type GovernorSignals,
   type QuestionCandidate,
 } from "../lib/question-governor"
+import type { CaptureEvent, WorkMap } from "../lib/types"
+import { buildWorkMapDraft } from "../lib/work-map-builder"
 
 const sessionId = "22222222-2222-4222-8222-222222222222"
 
@@ -162,4 +169,78 @@ test("Interviewer tools persist questions, gaps, resolutions, and corrections", 
   assert.equal(state.questions.length, 1)
   assert.equal(state.gaps[0]?.status, "waived")
   assert.equal(state.correction_count, 1)
+})
+
+test("Work Map compiler replaces seeded evidence with captured session evidence", () => {
+  const workMap = buildWorkMapDraft({
+    sessionId: sessionId,
+    events: eventsFixture.events as CaptureEvent[],
+    answers: [
+      {
+        id: "q-acme",
+        step_id: 2,
+        asked_t: 99,
+        answer: "The amendment replaces the original order form.",
+      },
+    ],
+    corrections: [
+      {
+        step_id: 3,
+        text: "Escalate the recurring relocation cost before accepting it.",
+      },
+    ],
+    confirmedStepIds: [1, 2, 4, 5, 6, 7],
+    gaps: [],
+    expert: "Test Expert",
+    createdAt: "2026-10-03T12:00:00.000Z",
+  })
+
+  assert.equal(workMap.session_id, sessionId)
+  assert.equal(workMap.expert, "Test Expert")
+  assert.equal(workMap.steps[1]?.screen_moment?.t, 95.4)
+  assert.equal(
+    workMap.steps[1]?.reason_quote,
+    '"The amendment replaces the original order form."'
+  )
+  assert.equal(workMap.steps[2]?.status, "corrected")
+  assert.equal(workMap.steps[2]?.screen_moment?.t, 150.3)
+  assert.equal(workMap.correction_count, 1)
+  assert.deepEqual(workMap.open_gaps, [])
+})
+
+test("Work Map API validates, stores, and retrieves a compiled map", async () => {
+  const workMapSessionId = "33333333-3333-4333-8333-333333333333"
+  const createResponse = await createWorkMap(
+    new Request("http://localhost/api/work-map", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        session_id: workMapSessionId,
+        events: eventsFixture.events,
+        confirmed_step_ids: [1, 2, 3, 4, 5, 6, 7],
+        confirmed_by_expert: true,
+      }),
+    })
+  )
+  const created = (await createResponse.json()) as { work_map?: WorkMap }
+  assert.equal(createResponse.status, 200)
+  assert.equal(created.work_map?.confirmed_by_expert, true)
+  assert.equal(created.work_map?.steps.length, 7)
+
+  const getResponse = await getWorkMap(
+    new Request(
+      `http://localhost/api/work-map?session_id=${workMapSessionId}`
+    )
+  )
+  const stored = (await getResponse.json()) as { work_map?: WorkMap }
+  assert.equal(getResponse.status, 200)
+  assert.equal(stored.work_map?.session_id, workMapSessionId)
+
+  const invalidResponse = await createWorkMap(
+    new Request("http://localhost/api/work-map", {
+      method: "POST",
+      body: JSON.stringify({ session_id: "not-a-uuid", events: [] }),
+    })
+  )
+  assert.equal(invalidResponse.status, 422)
 })

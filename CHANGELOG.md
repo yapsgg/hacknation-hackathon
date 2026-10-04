@@ -353,6 +353,24 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 ---
 
+## [0.0.19] — 2026-10-03
+
+### Done (session-built Work Map + developer handoff)
+
+- **Deterministic Work Map compiler** — captured events now replace seeded screen evidence, answered questions replace reason quotes, expert corrections replace decisions, and each step receives a confirmed/corrected/unresolved status without requiring a model key.
+- **Validated Work Map API** — `POST /api/work-map` compiles and stores a per-session map; `GET /api/work-map?session_id=` retrieves the latest map through Supabase or the explicit in-process fallback.
+- **Integrated expert sign-off** — `/apprentice` now compiles the session Work Map before marking teach-back complete, persists it with the rest of the UI state, and reports event/correction evidence in the Work Map view.
+- **Regression coverage** — the compiler's evidence mapping and correction behavior plus API validation, storage, and retrieval are covered by the Phase 2/3 suite.
+- **Developer handoff** — the README and `docs/LOCAL_DEVELOPMENT.md` document the no-key demo, optional service variables, safe local binding, validation commands, and conflict-minimizing branch workflow.
+
+### Still open for the live path
+
+- [ ] Replace the deterministic compiler with, or augment it by, a privacy-reviewed structured-output model after vision and transcript inputs are available.
+- [ ] Stream session events, questions, and gaps into the browser through Supabase Realtime.
+- [ ] Run the credentialed microphone, screen-share, Presidio, Supabase, and Vercel acceptance checks listed below.
+
+---
+
 ## Next Steps (to finish the app)
 
 Ordered by the build priority in `ARCHITECTURE.md` §8. Each item lists concrete deliverables and a definition of done.
@@ -389,10 +407,10 @@ Ordered by the build priority in `ARCHITECTURE.md` §8. Each item lists concrete
 ### Phase 3 — Map + Debrief (2:30–3:15, Engineer A)
 
 - [ ] **Event normalizer + session store** — persist `sessions` and `events` to Supabase; stream via Supabase Realtime.
-- [ ] **Gap Ledger** — track open/unanswered questions per step.
-- [ ] **Work Map builder** — LLM merges events + transcript + answers into the Work Map JSON; each step carries `t`, `quote`, `judgment_call`, `status`.
-- [ ] **Debrief controller** — gap analysis, ≥3 risk-prioritized follow-ups, teach-back, correction diff, done criteria.
-- [ ] **Work Map UI** (Engineer B) — clickable timeline, per-step screen moment, reason quote, guardrails; teach-back checklist the expert ticks.
+- [x] **Gap Ledger** — tracks open/unanswered questions per step with risk and resolution state.
+- [x] **Work Map builder** — deterministic no-key compiler merges events, answers, corrections, and gaps into schema-compatible Work Map JSON; a live model can augment it later.
+- [x] **Debrief controller** — gap analysis, ≥3 risk-prioritized follow-ups, teach-back, correction diff, done criteria.
+- [x] **Work Map UI** (Engineer B) — clickable timeline, per-step screen moment, reason quote, guardrails; teach-back checklist the expert ticks.
 - **Done when:** a full run produces a Work Map with "confirmed by expert" badge and correction count.
 
 ### Phase 4 — Teach / Tutor (3:30–4:30)

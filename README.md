@@ -1,21 +1,40 @@
-# Next.js template
+# AI Apprentice — PE Diligence Edition
 
-This is a Next.js template with shadcn/ui.
+AI Apprentice captures a senior private-equity expert's reasoning during a diligence workflow, turns the evidence into a reviewable Work Map, and uses only expert-approved rules to coach a junior analyst before unsafe inputs are committed.
 
-## Adding components
+## Run the demo locally
 
-To add components to your app, run the following command:
+Requirements: Git and Node.js 22.22 or newer.
 
-```bash
-npx shadcn@latest add button
+```powershell
+git clone https://github.com/yapsgg/hacknation-hackathon.git
+cd hacknation-hackathon
+npm ci
+npm run dev -- --hostname 127.0.0.1
 ```
 
-This will place the ui components in the `components` directory.
+Open [http://localhost:3000/apprentice](http://localhost:3000/apprentice) for the integrated Capture → Map → Teach demo, or [http://localhost:3000/deal-desk](http://localhost:3000/deal-desk) for the sandbox Deal Desk.
 
-## Using components
+No API keys are required for the synthetic seeded demo. It uses deterministic fixtures and in-memory/browser persistence when Supabase, ElevenLabs, vision, and Presidio variables are absent. Never use real deal data in that fallback mode.
 
-To use the components in your app, import them as follows:
+See [docs/LOCAL_DEVELOPMENT.md](./docs/LOCAL_DEVELOPMENT.md) for environment variables, validation commands, branch workflow, and troubleshooting.
 
-```tsx
-import { Button } from "@/components/ui/button";
+## Validate a change
+
+```powershell
+npm test
+npm run validate:fixtures
+npm run lint
+npm run typecheck
+npm run build
+npm run audit:prod
 ```
+
+The authoritative implementation status is [TODO.md](./TODO.md), generated from [CHANGELOG.md](./CHANGELOG.md) with `npm run todo`.
+
+## Safety
+
+- Use only synthetic data unless Supabase and Presidio are configured and the live privacy acceptance checks have passed.
+- Keep `.env.local` local. Never commit API keys or service-role credentials.
+- Bind development servers to `127.0.0.1` unless the team has deliberately approved LAN access.
+- Branch from the latest `main`, keep one feature per branch, and open a pull request into `testing` before promoting tested work to `main`.
