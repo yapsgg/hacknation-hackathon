@@ -45,7 +45,7 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 ### Still open in Phase 0
 
 - [ ] Lock the exact demo script (dialog-level).
-- [ ] Validate fixtures against the schemas in CI (needs an ajv 8 dev dependency or a script).
+- [x] Validate fixtures against the schemas in CI. Completed in `0.0.15` with AJV 8 and the GitHub Actions quality gate.
 
 ---
 
@@ -298,6 +298,16 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 - [ ] Connect redacted server-side vision events and the Phase 2 Question Governor to the Capture screen.
 - [ ] Persist the prototype's debrief, Work Map, and Teach state through the existing Supabase APIs instead of component-local demo state.
 - [ ] Reconcile the prototype's rule fixtures with the canonical seeded Work Map before making `/apprentice` the primary demo route.
+
+---
+
+## [0.0.15] — 2026-10-04
+
+### Done (schema contracts + continuous integration)
+
+- **Fixture contract validation** — `npm run validate:fixtures` compiles both draft 2020-12 schemas and validates every mock capture event plus the seeded Work Map.
+- **Semantic fixture checks** — validation also rejects out-of-order event timestamps and duplicate Work Map step ids.
+- **GitHub CI gate** — pull requests and pushes to `testing` or `main` now validate fixtures, run all tests, lint, type-check, and produce a production build on Node 22.22.
 
 ---
 

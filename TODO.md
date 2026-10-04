@@ -17,6 +17,7 @@ The generator reconciles old unchecked checklist items against later Done sectio
 - [x] **`fixtures/events.mock.json`** — realistic mock capture stream for the seeded demo run (Acme ARR, relocation add-back, capex ratio, save). _(source: [0.0.2] — 2026-10-04 / Done (Phase 0 — Foundation, partial))_
 - [x] **`fixtures/work-map.mock.json`** — pre-baked Work Map (7 steps, 4 guardrails, 3 judgment calls, 3 open gaps) for developing the tutor without a live session. _(source: [0.0.2] — 2026-10-04 / Done (Phase 0 — Foundation, partial))_
 - [x] **`.env.example`** — Supabase, ElevenLabs/ElevenAgents, vision-model, and app env vars; `.gitignore` updated to allow committing it. _(source: [0.0.2] — 2026-10-04 / Done (Phase 0 — Foundation, partial))_
+- [x] Validate fixtures against the schemas in CI. Completed in `0.0.15` with AJV 8 and the GitHub Actions quality gate. _(source: [0.0.2] — 2026-10-04 / Still open in Phase 0)_
 - [x] **`/deal-desk` page** — 3-pane layout: VDR viewer, LBO input sheet, Apprentice side panel. "synthetic data" label visible. _(source: [0.0.3] — 2026-10-04 / Done (Phase 1 — Sandbox "Deal Desk" app))_
 - [x] **Mock VDR** (`lib/vdr.ts`) — 8 seeded docs: EBITDA bridge, Acme MSA + Amendment 2 ("supersedes and replaces"), relocation invoices (3 years), capex history (4.1% vs 1.8%), Customer 3 Order Form + Add-On ("in addition to"), legal fee invoices (2 prior-year repeats). _(source: [0.0.3] — 2026-10-04 / Done (Phase 1 — Sandbox "Deal Desk" app))_
 - [x] **LBO input sheet** — ARR (Acme, Customer 3), add-backs (Relocation, Legal), capex ratio. Commit on blur/Enter emits `value_entered` (first entry) or `field_changed` (from → to). _(source: [0.0.3] — 2026-10-04 / Done (Phase 1 — Sandbox "Deal Desk" app))_
@@ -93,6 +94,9 @@ The generator reconciles old unchecked checklist items against later Done sectio
 - [x] **Privacy boundary preserved** — removed the prototype's direct browser-to-Anthropic frame upload. Live screen sampling now stays local and emits only generic frame-change events until OCR/PII masking and the server-side vision path are ready. _(source: [0.0.14] — 2026-10-04 / Done (`frontend_ui` integration))_
 - [x] **Acceptance pass** — loaded the completed demo, opened Debrief and Teach, and confirmed an unsafe `$190,000` Crestline ARR is blocked before the debt schedule with the expert's grounded reasoning. _(source: [0.0.14] — 2026-10-04 / Done (`frontend_ui` integration))_
 - [x] **Validation** — all 15 tests, lint, typecheck, production build, and browser console checks pass. _(source: [0.0.14] — 2026-10-04 / Done (`frontend_ui` integration))_
+- [x] **Fixture contract validation** — `npm run validate:fixtures` compiles both draft 2020-12 schemas and validates every mock capture event plus the seeded Work Map. _(source: [0.0.15] — 2026-10-04 / Done (schema contracts + continuous integration))_
+- [x] **Semantic fixture checks** — validation also rejects out-of-order event timestamps and duplicate Work Map step ids. _(source: [0.0.15] — 2026-10-04 / Done (schema contracts + continuous integration))_
+- [x] **GitHub CI gate** — pull requests and pushes to `testing` or `main` now validate fixtures, run all tests, lint, type-check, and produce a production build on Node 22.22. _(source: [0.0.15] — 2026-10-04 / Done (schema contracts + continuous integration))_
 - [x] **Define shared schemas** — create `/schemas/` with `event.schema.json` and `work-map.schema.json` exactly as specified in `ARCHITECTURE.md` §2–3. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
 - [x] **Client tool contract** — agree on names and signatures: `get_screen_state`, `log_question`, `mark_gap`, `start_debrief`, `submit_teachback_result`, `block_commit`, `replay_moment`, `update_mastery`, `lookup_guardrail`, `get_expert_moment`. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
 - [x] **Mock event stream** — `fixtures/events.mock.json` so each engineer can develop independently. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
@@ -116,7 +120,6 @@ The generator reconciles old unchecked checklist items against later Done sectio
 ## Open work
 
 - [ ] Lock the exact demo script (dialog-level). _(source: [0.0.2] — 2026-10-04 / Still open in Phase 0)_
-- [ ] Validate fixtures against the schemas in CI (needs an ajv 8 dev dependency or a script). _(source: [0.0.2] — 2026-10-04 / Still open in Phase 0)_
 - [ ] Persist task runs, worker artifacts, test evidence, and reviewer decisions. _(source: [0.0.6] — 2026-10-04 / Still open for orchestration)_
 - [ ] Add CI validation that rejects a task when its claimed files overlap another active task. _(source: [0.0.6] — 2026-10-04 / Still open for orchestration)_
 - [ ] Test microphone/screen-share permissions and the voice phrase “off the record” in Chrome on the demo laptop. _(source: [0.0.9] — 2026-10-04 / Deployment action required for Phase 5)_
@@ -162,10 +165,10 @@ The generator reconciles old unchecked checklist items against later Done sectio
 
 ## Recommended execution order
 
-1. Integrate `worktree-deal-desk-ui-v2` into a branch based on `testing` and preserve the Phase 4/5 behavior.
-2. Run tests, typecheck, lint, build, and a Preview browser acceptance pass on the combined app.
-3. Complete the remaining Phase 2/3 capture, Work Map, debrief, and Realtime paths.
-4. Configure Presidio and judge-safe Vercel access, then repeat the live privacy deletion test.
+1. Reconcile the imported `/apprentice` rules with the canonical Work Map and persistence APIs.
+2. Connect the Interviewer UI, Question Governor signals, and privacy-safe vision extractor.
+3. Complete the dynamic Work Map builder and browser Realtime path.
+4. Configure Presidio and judge-safe Vercel access, then repeat live privacy and microphone checks.
 5. Build the recorded fallback, production dry-runs, and final demo materials.
 6. Re-run `npm run todo` after every merged phase.
 
