@@ -11,6 +11,12 @@ const EVENT_TYPES = new Set<CaptureEvent["type"]>([
   "navigation",
 ])
 
+// Google retires pinned model names for new keys (gemini-2.5-flash already
+// returns 404), so default to the maintained alias. Pin VISION_MODEL for a
+// reproducible run.
+export const DEFAULT_VISION_MODEL = "gemini-flash-latest"
+export const DEFAULT_VISION_FALLBACK_MODEL = "gemini-flash-lite-latest"
+
 export class VisionConfigurationError extends Error {
   constructor(public readonly missing: string[]) {
     super(`Vision is not configured: ${missing.join(", ")}`)
@@ -31,45 +37,75 @@ function timeout(name: string, fallback: number): number {
     : fallback
 }
 
+function imageMimeType(bytes: Buffer): "image/jpeg" | "image/png" | null {
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff)
+    return "image/jpeg"
+  if (
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47
+  )
+    return "image/png"
+  return null
+}
+
 async function redactFrame(dataUrl: string): Promise<RedactedFrame> {
   const url = process.env.FRAME_REDACTION_URL?.trim()
   if (!url) throw new VisionConfigurationError(["FRAME_REDACTION_URL"])
 
-  const headers: Record<string, string> = { "content-type": "application/json" }
+  const headers: Record<string, string> = {}
   const token = process.env.FRAME_REDACTION_TOKEN?.trim()
   if (token) headers.authorization = `Bearer ${token}`
   const mode = process.env.FRAME_REDACTION_MODE?.trim().toLowerCase()
   const sourceBase64 = dataUrl.slice(dataUrl.indexOf(",") + 1)
-  const response = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(
-      mode === "presidio"
-        ? { image: sourceBase64 }
-        : { image: dataUrl, mime_type: "image/jpeg" }
-    ),
-    cache: "no-store",
-    signal: AbortSignal.timeout(timeout("FRAME_REDACTION_TIMEOUT_MS", 10_000)),
-  })
-  if (!response.ok)
-    throw new Error(`Frame redactor returned ${response.status}`)
+  const signal = AbortSignal.timeout(timeout("FRAME_REDACTION_TIMEOUT_MS", 10_000))
 
   if (mode === "presidio") {
-    const contentType = response.headers.get("content-type")?.split(";")[0]
-    if (contentType !== "image/jpeg" && contentType !== "image/png") {
-      throw new Error("Presidio image redactor returned a non-image response")
-    }
-    const bytes = Buffer.from(await response.arrayBuffer())
+    // The published Presidio image-redactor takes a multipart `image` file and
+    // answers with the redacted image's raw bytes as application/octet-stream
+    // (its JSON path returns base64 text instead), so identify the image by
+    // its magic bytes rather than the content type.
+    const form = new FormData()
+    form.append(
+      "image",
+      new Blob([Buffer.from(sourceBase64, "base64")], { type: "image/jpeg" }),
+      "frame.jpg"
+    )
+    const presidio = await fetch(url, {
+      method: "POST",
+      headers,
+      body: form,
+      cache: "no-store",
+      signal,
+    })
+    if (!presidio.ok)
+      throw new Error(`Frame redactor returned ${presidio.status}`)
+    const bytes = Buffer.from(await presidio.arrayBuffer())
     if (bytes.length === 0 || bytes.length > 1_500_000) {
       throw new Error("Presidio image redactor returned an invalid image")
     }
+    const mimeType = imageMimeType(bytes)
+    if (!mimeType) {
+      throw new Error("Presidio image redactor returned a non-image response")
+    }
     return {
-      dataUrl: `data:${contentType};base64,${bytes.toString("base64")}`,
-      mimeType: contentType,
+      dataUrl: `data:${mimeType};base64,${bytes.toString("base64")}`,
+      mimeType,
       redactions: 0,
       provider: "presidio-image-redactor",
     }
   }
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { ...headers, "content-type": "application/json" },
+    body: JSON.stringify({ image: dataUrl, mime_type: "image/jpeg" }),
+    cache: "no-store",
+    signal,
+  })
+  if (!response.ok)
+    throw new Error(`Frame redactor returned ${response.status}`)
 
   const payload = (await response.json()) as Record<string, unknown>
   const redacted = payload.redacted_data_url
@@ -162,7 +198,7 @@ async function extractWithGemini(input: {
   previousState?: string
 }): Promise<CaptureEvent[]> {
   const apiKey = process.env.GOOGLE_VISION_API_KEY?.trim()
-  const model = process.env.VISION_MODEL?.trim() || "gemini-2.5-flash"
+  const model = process.env.VISION_MODEL?.trim() || DEFAULT_VISION_MODEL
   if (!apiKey) throw new VisionConfigurationError(["GOOGLE_VISION_API_KEY"])
   const base64 = input.frame.dataUrl.slice(input.frame.dataUrl.indexOf(",") + 1)
   const prompt = [
@@ -175,36 +211,48 @@ async function extractWithGemini(input: {
     .filter(Boolean)
     .join("\n")
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: prompt },
-              {
-                inlineData: { mimeType: input.frame.mimeType, data: base64 },
-              },
-            ],
-          },
+  const body = JSON.stringify({
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: prompt },
+          { inlineData: { mimeType: input.frame.mimeType, data: base64 } },
         ],
-        generationConfig: {
-          temperature: 0,
-          responseMimeType: "application/json",
-          responseSchema: RESPONSE_SCHEMA,
+      },
+    ],
+    generationConfig: {
+      temperature: 0,
+      responseMimeType: "application/json",
+      responseSchema: RESPONSE_SCHEMA,
+    },
+  })
+  // Gemini answers 503 "high demand" in bursts. Retry once on a lighter model
+  // rather than dropping the frame; both models see only the redacted image.
+  const fallback = process.env.VISION_FALLBACK_MODEL?.trim() || DEFAULT_VISION_FALLBACK_MODEL
+  const models = fallback && fallback !== model ? [model, fallback] : [model]
+  let response: Response | null = null
+  for (const [index, name] of models.entries()) {
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(name)}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-goog-api-key": apiKey,
         },
-      }),
-      cache: "no-store",
-      signal: AbortSignal.timeout(timeout("VISION_TIMEOUT_MS", 20_000)),
-    }
-  )
+        body,
+        cache: "no-store",
+        signal: AbortSignal.timeout(timeout("VISION_TIMEOUT_MS", 20_000)),
+      }
+    ).catch((error) => {
+      if (index === models.length - 1) throw error
+      return null
+    })
+    if (response?.ok) break
+    if (response && ![429, 500, 503].includes(response.status)) break
+  }
+  if (!response) throw new Error("Vision provider was unreachable")
   if (!response.ok)
     throw new Error(`Vision provider returned ${response.status}`)
   const payload = (await response.json()) as {

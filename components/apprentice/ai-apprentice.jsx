@@ -25,6 +25,9 @@ import {
 import { evaluateQuestionSlot, QUESTION_GOVERNOR_POLICY } from "@/lib/question-governor";
 import { LiveInterviewer } from "@/components/apprentice/live-interviewer";
 import { sessionFetch } from "@/lib/session-client";
+import { LIVE_POLICY, LiveSignalTracker, describeLiveEvent, liveCandidatesFromEvent, liveEventField } from "@/lib/live-capture";
+import { useVoiceActivity } from "@/hooks/use-voice-activity";
+import { encodeReadableJpeg } from "@/hooks/use-screen-capture";
 import { ATLAS_FILES, BEACON_FILES, DocFace, fileById } from "./work-files";
 
 /* ------------------------------------------------------------------
@@ -582,6 +585,7 @@ function initCap() {
     queue: [], dyn: [], pending: null, askingUntil: 0, agent: "idle", agentLine: "", holdReason: "",
     governor: { reason: "Waiting for a trigger", trigger: null, score: null },
     off: false, offSegs: [], suppressed: 0, redacted: 0, done: false, interruptions: 0,
+    live: null, liveSig: null, vision: null,
   };
 }
 
@@ -610,40 +614,9 @@ function signalsAt(cap, t) {
   };
 }
 
-function stepCap(prev, dt) {
-  if (prev.done) return prev;
-  const c = { ...prev, events: [...prev.events], transcript: [...prev.transcript], asked: [...prev.asked],
-    queue: [...prev.queue], deferred: [...prev.deferred], dropped: [...prev.dropped], dyn: [...prev.dyn], offSegs: [...prev.offSegs] };
-  const t = Math.min(END_T, prev.t + dt);
-
-  while (c.ei < SCRIPT.length && SCRIPT[c.ei].t <= t) {
-    const e = SCRIPT[c.ei++];
-    if (e.kind === "offOn") { if (!c.off) { c.off = true; c.offSegs.push({ from: e.t, to: null, how: "voice command" }); c.transcript.push({ t: e.t, who: "marker", text: "Off the record. Audio and frames are not stored." }); } continue; }
-    if (e.kind === "offOff") { if (c.off) { c.off = false; c.offSegs[c.offSegs.length - 1] = { ...c.offSegs[c.offSegs.length - 1], to: e.t }; c.transcript.push({ t: e.t, who: "marker", text: "Back on the record." }); } continue; }
-    if (c.off) { c.suppressed++; continue; }
-    if (e.kind === "speech") { c.transcript.push({ t: e.t, who: "expert", quote: e.quote }); continue; }
-    if (e.kind === "pii") { c.redacted += e.n; c.events.push({ t: e.t, kind: "pii", text: e.text }); continue; }
-    if (e.kind === "end") {
-      c.events.push({ t: e.t, kind: "end", text: e.text });
-      c.done = true; c.running = false; c.agent = "done";
-      c.agentLine = `Thanks, ${EXPERT.first}. I have a few open questions for the debrief.`;
-      continue;
-    }
-    c.events.push({ t: e.t, kind: "screen", text: e.text, field: e.field, raw: e.event });
-    (e.cands || []).forEach((k) => {
-      if (k.drop) c.dropped.push({ t: e.t, q: k.q, why: k.drop });
-      else if (k.defer) c.deferred.push({ t: e.t, q: k.q, why: k.why, gap: k.defer });
-      else c.queue.push({ ...k, eventT: e.t, eventText: e.text, alts: e.cands.filter((x) => x !== k) });
-    });
-  }
-
-  if (c.pending && t >= c.pending.at) {
-    c.transcript.push({ t: c.pending.at, who: "expert", quote: c.pending.quote });
-    c.asked = c.asked.map((a) => (a.id === c.pending.quote ? { ...a, answeredAt: c.pending.at } : a));
-    c.pending = null;
-  }
-
-  const sig = signalsAt(c, t);
+// Asks the shared Question Governor for a slot and updates the agent state. Used by both the recorded
+// session and live capture; only the signals differ.
+function governQueue(c, t, sig, live = false) {
   if (c.done) { /* keep */ }
   else if (c.off) c.agent = "off";
   else if (t < c.askingUntil) c.agent = "asking";
@@ -682,13 +655,52 @@ function stepCap(prev, dt) {
       c.asked.push({ id: k.id, step: k.step, q: k.q, type: k.type, t, eventT: k.eventT, eventText: k.eventText, quiet: sig.quiet, voiceSilenceFor: sig.voiceSilenceFor, interactionIdleFor: sig.interactionIdleFor, alts: k.alts, governorScore: decision.score, trigger: k.trigger });
       c.transcript.push({ t, who: "agent", text: k.q });
       c.agent = "asking"; c.agentLine = k.q; c.askingUntil = t + 2.5;
-      c.dyn.push({ from: t + 2.5, to: t + 8 });
-      c.pending = { at: t + 8, quote: k.id };
+      if (!live) {
+        // The recorded session simulates the expert answering; live capture hears the real answer instead.
+        c.dyn.push({ from: t + 2.5, to: t + 8 });
+        c.pending = { at: t + 8, quote: k.id };
+      }
     } else if (["expert_speaking", "expert_active", "document_scrolling"].includes(decision.reason)) {
       c.agent = "holding";
       c.holdReason = decision.reason === "expert_speaking" ? "talking" : decision.reason === "document_scrolling" ? "reading" : "typing";
     } else c.agent = "waiting";
   } else c.agent = "listening";
+}
+
+function stepCap(prev, dt) {
+  if (prev.done) return prev;
+  const c = { ...prev, events: [...prev.events], transcript: [...prev.transcript], asked: [...prev.asked],
+    queue: [...prev.queue], deferred: [...prev.deferred], dropped: [...prev.dropped], dyn: [...prev.dyn], offSegs: [...prev.offSegs] };
+  const t = Math.min(END_T, prev.t + dt);
+
+  while (c.ei < SCRIPT.length && SCRIPT[c.ei].t <= t) {
+    const e = SCRIPT[c.ei++];
+    if (e.kind === "offOn") { if (!c.off) { c.off = true; c.offSegs.push({ from: e.t, to: null, how: "voice command" }); c.transcript.push({ t: e.t, who: "marker", text: "Off the record. Audio and frames are not stored." }); } continue; }
+    if (e.kind === "offOff") { if (c.off) { c.off = false; c.offSegs[c.offSegs.length - 1] = { ...c.offSegs[c.offSegs.length - 1], to: e.t }; c.transcript.push({ t: e.t, who: "marker", text: "Back on the record." }); } continue; }
+    if (c.off) { c.suppressed++; continue; }
+    if (e.kind === "speech") { c.transcript.push({ t: e.t, who: "expert", quote: e.quote }); continue; }
+    if (e.kind === "pii") { c.redacted += e.n; c.events.push({ t: e.t, kind: "pii", text: e.text }); continue; }
+    if (e.kind === "end") {
+      c.events.push({ t: e.t, kind: "end", text: e.text });
+      c.done = true; c.running = false; c.agent = "done";
+      c.agentLine = `Thanks, ${EXPERT.first}. I have a few open questions for the debrief.`;
+      continue;
+    }
+    c.events.push({ t: e.t, kind: "screen", text: e.text, field: e.field, raw: e.event });
+    (e.cands || []).forEach((k) => {
+      if (k.drop) c.dropped.push({ t: e.t, q: k.q, why: k.drop });
+      else if (k.defer) c.deferred.push({ t: e.t, q: k.q, why: k.why, gap: k.defer });
+      else c.queue.push({ ...k, eventT: e.t, eventText: e.text, alts: e.cands.filter((x) => x !== k) });
+    });
+  }
+
+  if (c.pending && t >= c.pending.at) {
+    c.transcript.push({ t: c.pending.at, who: "expert", quote: c.pending.quote });
+    c.asked = c.asked.map((a) => (a.id === c.pending.quote ? { ...a, answeredAt: c.pending.at } : a));
+    c.pending = null;
+  }
+
+  governQueue(c, t, signalsAt(c, t));
 
   c.t = t;
   return c;
@@ -698,6 +710,48 @@ function runToEnd(cap) {
   let c = { ...cap, running: false };
   let guard = 0;
   while (!c.done && guard++ < 5000) c = stepCap(c, 0.5);
+  return c;
+}
+
+/* Live capture: the same Governor, fed by the microphone level, screen change and redacted vision
+   events instead of the recorded script. Nothing here is simulated. */
+const LIVE_QUEUE_MAX_AGE_S = 90;
+const LIVE_EVENTS_MAX = 490; // /api/apprentice/state accepts at most 500 events
+
+function liveStep(prev, now, snap) {
+  if (prev.done || !prev.live?.startedAt) return prev;
+  const c = { ...prev, asked: [...prev.asked], transcript: [...prev.transcript],
+    queue: prev.queue.filter((item) => now - item.eventT <= LIVE_QUEUE_MAX_AGE_S) };
+  const agentSpeaking = now < c.askingUntil;
+  const sig = {
+    typing: false, reading: snap.docScrolling, speaking: snap.speaking, agent: agentSpeaking,
+    moving: false, screenActive: snap.screenActive,
+    voiceSilenceFor: snap.voiceSilenceFor, interactionIdleFor: snap.interactionIdleFor,
+    quiet: Math.min(snap.voiceSilenceFor, snap.interactionIdleFor),
+    active: snap.speaking || snap.docScrolling || agentSpeaking,
+  };
+  c.t = now;
+  c.liveSig = sig;
+  governQueue(c, now, sig, true);
+  return c;
+}
+
+function ingestVisionEvents(prev, events) {
+  if (!events.length || prev.done) return prev;
+  const c = { ...prev, events: [...prev.events], queue: [...prev.queue] };
+  const askedTexts = new Set(c.asked.map((a) => a.q));
+  for (const ev of events) {
+    if (c.off) { c.suppressed++; continue; }
+    // Local "screen changed" notes are shown but never become Work Map evidence.
+    c.events.push({ t: ev.t, kind: "screen", text: ev.local ? ev.object : describeLiveEvent(ev), field: ev.local ? null : liveEventField(ev), raw: ev.local ? undefined : ev, live: true });
+    if (ev.local) continue;
+    for (const cand of liveCandidatesFromEvent(ev, askedTexts)) {
+      // The Governor's "recent trigger" window runs from when the event was detected, not from the frame time,
+      // because vision takes seconds to answer. The frame time stays on the event as evidence.
+      if (!c.queue.some((q) => q.id === cand.id)) c.queue.push({ ...cand, eventT: Math.max(cand.eventT, c.t), alts: [] });
+    }
+  }
+  c.events = c.events.slice(-LIVE_EVENTS_MAX);
   return c;
 }
 
@@ -1245,22 +1299,75 @@ function CapturePage() {
   useEffect(() => { if (cap.done) announce("Capture finished. The debrief is ready."); }, [cap.done]); // eslint-disable-line
 
   useEffect(() => { if (videoRef.current && stream) videoRef.current.srcObject = stream; }, [stream]);
-  useFrameSampler(stream, videoRef, capRef, setCap);
 
-  async function share() {
-    setShareMsg(null);
-    try {
-      const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 2 }, audio: false });
-      s.getVideoTracks()[0].onended = () => setStream(null);
-      setStream(s);
-      setShareMsg({ tone: "agent", text: "Sharing locally. Changed frames stay in this browser until redaction and the server-side vision path are connected." });
-    } catch {
-      setShareMsg({ tone: "critical", text: "Screen sharing is blocked in this preview. Play the demo session here, or run the app on your own domain to share a real screen." });
-    }
+  // ---- live capture: real screen, real microphone level, optional redacted vision ----
+  const sessionId = getApprenticeSessionId();
+  const visionOn = process.env.NEXT_PUBLIC_ENABLE_VISION === "true";
+  const trackerRef = useRef(new LiveSignalTracker());
+  const liveNow = () => ((performance.now() - (capRef.current.live?.startedAt ?? performance.now())) / 1000);
+  const voiceActivity = useVoiceActivity({
+    onSpeech: () => { if (capRef.current.live?.startedAt && !capRef.current.off) trackerRef.current.noteVoice(liveNow()); },
+  });
+  const liveRunning = !!cap.live?.startedAt && !cap.done;
+
+  useEffect(() => {
+    if (!liveRunning) return;
+    const id = setInterval(() => {
+      const now = liveNow();
+      setCap((c) => liveStep(c, now, trackerRef.current.snapshot(now)));
+    }, 500);
+    return () => clearInterval(id);
+  }, [liveRunning]); // eslint-disable-line
+
+  useLiveSampler({
+    stream, videoRef, capRef, trackerRef, sessionId, visionOn, active: liveRunning,
+    onEvents: (events) => setCap((c) => ingestVisionEvents(c, events)),
+    onVision: (patch) => setCap((c) => (c.live ? { ...c, vision: { ...c.vision, ...patch(c.vision) } } : c)),
+  });
+
+  function releaseMedia() {
+    stream?.getTracks().forEach((tr) => tr.stop());
+    setStream(null);
+    voiceActivity.stop();
   }
-  function stopShare() { stream?.getTracks().forEach((tr) => tr.stop()); setStream(null); setShareMsg(null); }
+  async function startLive() {
+    setShareMsg(null);
+    let display;
+    try {
+      display = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 2 }, audio: false });
+    } catch {
+      setShareMsg({ tone: "critical", text: "Screen sharing was refused or is unavailable here. Use the recorded session, or open the app in Chrome on your own domain." });
+      return;
+    }
+    // Without the microphone the Governor could not tell when the expert is talking, so fail closed.
+    const micOk = await voiceActivity.start();
+    if (!micOk) {
+      display.getTracks().forEach((tr) => tr.stop());
+      setShareMsg({ tone: "critical", text: "Live capture needs the microphone level to know when the expert is talking. Allow microphone access, or use the recorded session." });
+      return;
+    }
+    display.getVideoTracks()[0].onended = () => { setStream(null); voiceActivity.stop(); };
+    trackerRef.current = new LiveSignalTracker();
+    setStream(display);
+    setTab("events");
+    setCap({ ...initCap(), live: { startedAt: performance.now() },
+      vision: { enabled: visionOn, calls: 0, events: 0, errors: 0, totalLatencyMs: 0, lastLatencyMs: null, redactions: 0, provider: null, disabled: null } });
+    setShareMsg({ tone: "agent", text: visionOn
+      ? "Live capture is on. Frames go to the server-side redactor first; only the redacted image reaches the vision model, and nothing is stored."
+      : "Live capture is on without vision: screen change and microphone level are measured locally, but no questions can be generated until vision is configured." });
+  }
+  function endLive() {
+    releaseMedia();
+    setCap((c) => ({ ...c, done: true, running: false, agent: "done", agentLine: `Thanks, ${EXPERT.first}. I have a few open questions for the debrief.` }));
+  }
+  function switchToRecorded() {
+    releaseMedia();
+    setShareMsg(null);
+    setCap(initCap());
+  }
 
-  const sig = signalsAt(cap, cap.t);
+  const sig = cap.live && cap.liveSig ? cap.liveSig : signalsAt(cap, cap.t);
+  const spanT = cap.live ? Math.max(END_T, cap.t) : END_T;
   const pause = sig.voiceSilenceFor >= QUESTION_GOVERNOR_POLICY.minVoiceSilence &&
     sig.interactionIdleFor >= QUESTION_GOVERNOR_POLICY.minInteractionIdle &&
     !sig.reading && !sig.agent && !cap.off && !cap.done && cap.t > 0;
@@ -1295,41 +1402,44 @@ function CapturePage() {
         <div className="stack">
           <Card title={`${EXPERT.first}'s screen`} extra={
             <div className="row">
-              {stream ? <button className="btn compact" onClick={stopShare}><Square size={13} aria-hidden /> Stop sharing</button>
-                : <button className="btn compact" onClick={share}><MonitorUp size={13} aria-hidden /> Share my screen</button>}
+              {liveRunning ? <button className="btn compact" onClick={endLive}><Square size={13} aria-hidden /> End live capture</button>
+                : <button className="btn compact" disabled={cap.done} onClick={() => void startLive()}><MonitorUp size={13} aria-hidden /> Start live capture</button>}
               <button className={"btn compact"} aria-pressed={cap.off} disabled={cap.done || cap.t === 0} onClick={() => setCap((c) => toggleOff(c))}>
                 <EyeOff size={13} aria-hidden /> {cap.off ? "Go back on the record" : "Go off the record"}</button>
             </div>}>
             <div className="stack">
               <div className="row">
-                <button className="btn" disabled={cap.done} onClick={() => setCap((c) => ({ ...c, running: !c.running }))}>
+                <button className="btn" disabled={cap.done || !!cap.live} onClick={() => setCap((c) => ({ ...c, running: !c.running }))}>
                   {cap.running ? <><Pause size={14} aria-hidden /> Pause demo</> : <><Play size={14} aria-hidden /> {cap.t > 0 ? "Resume demo" : "Play demo session"}</>}</button>
                 <div className="seg" role="radiogroup" aria-label="Playback speed">
                   {[4, 8, 16].map((s) => <button key={s} role="radio" aria-checked={cap.speed === s} onClick={() => setCap((c) => ({ ...c, speed: s }))}>{s}×</button>)}
                 </div>
-                <button className="btn" disabled={cap.done} onClick={() => setCap((c) => runToEnd(c))}><FastForward size={14} aria-hidden /> Skip to end</button>
-                <button className="btn" onClick={() => setCap(initCap())}><RotateCcw size={14} aria-hidden /> Restart</button>
+                <button className="btn" disabled={cap.done || !!cap.live} onClick={() => setCap((c) => runToEnd(c))}><FastForward size={14} aria-hidden /> Skip to end</button>
+                <button className="btn" onClick={switchToRecorded}><RotateCcw size={14} aria-hidden /> {cap.live ? "Use the recorded session" : "Restart"}</button>
               </div>
               {stream ? <video ref={videoRef} autoPlay muted playsInline style={{ width: "100%", borderRadius: 8, border: "1px solid var(--line)" }} />
                 : <Screen t={cap.t} off={cap.off} redact={settings.redact} />}
               <div>
                 <div className="row"><span className="t-sec">Session time</span><TimeLink t={cap.t} /><span className="spacer" />
-                  <span className="t-sec">{fmt(END_T)} total</span></div>
+                  <span className="t-sec">{cap.live ? "live capture" : `${fmt(END_T)} total`}</span></div>
                 <div className="scrub" aria-hidden>
-                  <div className="scrub-track" /><div className="scrub-fill" style={{ width: `${(cap.t / END_T) * 100}%` }} />
-                  {cap.offSegs.map((s, i) => <div key={i} className="scrub-off" style={{ left: `${(s.from / END_T) * 100}%`, width: `${(((s.to ?? cap.t) - s.from) / END_T) * 100}%` }} />)}
-                  {cap.asked.map((a) => <div key={a.id} className={"scrub-q" + (a.type === "guardrail" ? " g" : "")} style={{ left: `${(a.t / END_T) * 100}%` }} />)}
+                  <div className="scrub-track" /><div className="scrub-fill" style={{ width: `${Math.min(100, (cap.t / spanT) * 100)}%` }} />
+                  {cap.offSegs.map((s, i) => <div key={i} className="scrub-off" style={{ left: `${(s.from / spanT) * 100}%`, width: `${(((s.to ?? cap.t) - s.from) / spanT) * 100}%` }} />)}
+                  {cap.asked.map((a) => <div key={a.id} className={"scrub-q" + (a.type === "guardrail" ? " g" : "")} style={{ left: `${(a.t / spanT) * 100}%` }} />)}
                 </div>
               </div>
               <div className="signals" aria-label="Activity signals">
-                <div className={"signal" + (sig.typing ? " on" : "")}><span className="row strong"><Keyboard size={13} aria-hidden /> Typing</span><span className="t-sec">{sig.typing ? "Active, so the apprentice waits" : "Keyboard idle"}</span></div>
+                {cap.live
+                  ? <div className={"signal" + (sig.screenActive ? " on" : "")}><span className="row strong"><MonitorUp size={13} aria-hidden /> Screen</span><span className="t-sec">{sig.screenActive ? "Changing, so the apprentice waits" : "Screen still"}</span></div>
+                  : <div className={"signal" + (sig.typing ? " on" : "")}><span className="row strong"><Keyboard size={13} aria-hidden /> Typing</span><span className="t-sec">{sig.typing ? "Active, so the apprentice waits" : "Keyboard idle"}</span></div>}
                 <div className={"signal" + (sig.reading ? " on" : "")}><span className="row strong"><BookOpen size={13} aria-hidden /> Reading</span><span className="t-sec">{sig.reading ? "Scrolling or reading" : "No reading detected"}</span></div>
                 <div className={"signal" + (sig.speaking || sig.agent ? " on" : "")}><span className="row strong"><Mic size={13} aria-hidden /> Talking</span><span className="t-sec">{sig.agent ? "Apprentice speaking" : sig.speaking ? `${EXPERT.first} is talking` : "Silence"}</span></div>
                 <div className={"signal" + (pause ? " pause" : "")}><span className="strong">{pause ? "Natural pause" : "Quiet time"}</span>
                   <span className="t-meta">voice {sig.voiceSilenceFor.toFixed(1)}/{QUESTION_GOVERNOR_POLICY.minVoiceSilence} s · input {sig.interactionIdleFor.toFixed(1)}/{QUESTION_GOVERNOR_POLICY.minInteractionIdle} s</span>
                   <div className="meter-bar"><i style={{ width: `${gateProgress * 100}%` }} /><s style={{ left: "100%" }} /></div></div>
               </div>
-              <p className="t-sec">This no-key demo feeds deterministic keyboard, document-scroll and voice-silence signals into the production Question Governor. Live Scribe and vision signals can replace the seeded stream without changing the gate.</p>
+              {cap.live ? <LiveStatus cap={cap} voice={voiceActivity} visionOn={visionOn} />
+                : <p className="t-sec">The recorded session feeds seeded keyboard, document-scroll and voice-silence signals into the production Question Governor. Start live capture to feed it your real microphone level, screen changes and redacted vision events instead; the gate is the same.</p>}
             </div>
           </Card>
         </div>
@@ -1348,7 +1458,7 @@ function CapturePage() {
           <section className={"card agent" + (cap.off ? " hatch" : "")} aria-live="polite" aria-label="Apprentice">
             <div className="agent-state" style={cap.off ? { color: "var(--text)" } : null}><StateIcon size={16} aria-hidden /> {state[1]}</div>
             {cap.agent === "asking" && <p className="agent-line">“{cap.agentLine}”</p>}
-            {cap.agent === "idle" && <p className="t-sec" style={{ marginTop: 8 }}>Play the demo session, or share your own screen.</p>}
+            {cap.agent === "idle" && <p className="t-sec" style={{ marginTop: 8 }}>Play the recorded session, or start live capture.</p>}
             {cap.agent === "done" && <p className="agent-line">{cap.agentLine}</p>}
             {cap.agent === "off" && <p className="t-sec" style={{ marginTop: 8 }}>Nothing is heard, seen or stored until {EXPERT.first} goes back on the record. Only the time span is kept.</p>}
             {(cap.agent === "holding" || cap.agent === "waiting") && cap.queue[0] && <p className="t-sec" style={{ marginTop: 8 }}>Held: “{cap.queue[0].q}”</p>}
@@ -1417,54 +1527,104 @@ function mergeOff(cap) {
   return [...cap.events, ...segs].sort((a, b) => a.t - b.t);
 }
 
-/* Live preview: sample locally every 2 s and record only that the screen changed.
-   Raw frames must not leave the browser until OCR/PII masking and the server-side
-   vision route are ready. This deliberately replaces the prototype's direct
-   browser-to-model request, which would bypass the privacy boundary. */
-function useFrameSampler(stream, videoRef, capRef, setCap) {
+function LiveStatus({ cap, voice, visionOn }) {
+  const v = cap.vision || {};
+  const avg = v.calls - v.errors > 0 ? Math.round(v.totalLatencyMs / (v.calls - v.errors)) : null;
+  return (
+    <div className="inset stack tight" aria-label="Live capture status">
+      <div className="row"><strong>Live capture</strong><span className="spacer" />
+        <span className="t-cap">{cap.done ? "ended" : cap.live.startedAt ? "running" : "interrupted by a reload; start a new live capture"}</span></div>
+      <div className="row t-sec">
+        <Mic size={13} aria-hidden /> Microphone level (measured here, never recorded or sent)
+        <div className="meter-bar" style={{ flex: 1 }}><i style={{ width: `${Math.round(voice.level * 100)}%` }} /></div>
+      </div>
+      {voice.error && <p className="t-sec" style={{ color: "var(--critical)" }}>{voice.error}</p>}
+      <p className="t-sec">
+        {!visionOn && "Vision is off (NEXT_PUBLIC_ENABLE_VISION is not true). No screen events and so no live questions."}
+        {visionOn && v.disabled && `Vision stopped: ${v.disabled}`}
+        {visionOn && !v.disabled && `Vision: ${v.calls} frames sent through the redactor, ${v.events} events, ${v.errors} errors${avg != null ? `, ${avg} ms average round trip` : ""}${v.provider ? `, redactor ${v.provider}` : ""}. Frames are not stored.${v.lastError ? ` Last error: ${v.lastError}` : ""}`}
+      </p>
+    </div>
+  );
+}
+
+/* Live sampling: every 2 s compare a tiny grayscale copy of the shared screen with the previous one.
+   A change feeds the Governor's interaction signal. With vision on, a readable frame is also sent to
+   /api/vision/extract, which redacts it server-side before the vision model sees it and stores nothing.
+   Nothing leaves the browser except through that route. */
+function useLiveSampler({ stream, videoRef, capRef, trackerRef, sessionId, visionOn, active, onEvents, onVision }) {
+  const cbRef = useRef({ onEvents, onVision });
+  useEffect(() => { cbRef.current = { onEvents, onVision }; });
   useEffect(() => {
-    if (!stream) return;
-    const started = Date.now();
-    let previous = null;
+    if (!stream || !active) return;
+    let previous = null; let inflight = false; let lastVisionAt = -Infinity; let disabled = false; let lastLocalAt = -Infinity;
     const canvas = document.createElement("canvas");
+    const out = document.createElement("canvas");
+    const nowS = () => (performance.now() - (capRef.current.live?.startedAt ?? performance.now())) / 1000;
     const id = setInterval(() => {
       const v = videoRef.current;
-      if (!v || !v.videoWidth || capRef.current.off) return;
-      canvas.width = 48;
-      canvas.height = 27;
+      if (!v || !v.videoWidth) return;
+      canvas.width = 48; canvas.height = 27;
       const context = canvas.getContext("2d", { willReadFrequently: true });
       if (!context) return;
       context.drawImage(v, 0, 0, canvas.width, canvas.height);
       const current = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let diff = 0;
       if (previous) {
         let delta = 0;
         for (let i = 0; i < current.length; i += 4) {
-          delta += Math.abs(current[i] - previous[i]);
-          delta += Math.abs(current[i + 1] - previous[i + 1]);
-          delta += Math.abs(current[i + 2] - previous[i + 2]);
+          delta += Math.abs(current[i] - previous[i]) + Math.abs(current[i + 1] - previous[i + 1]) + Math.abs(current[i + 2] - previous[i + 2]);
         }
-        const diff = delta / (canvas.width * canvas.height * 3 * 255);
-        if (diff >= 0.02) {
-          const t = (Date.now() - started) / 1000;
-          setCap((c) => ({
-            ...c,
-            events: [
-              ...c.events,
-              {
-                t,
-                kind: "screen",
-                text: "Screen changed in local privacy-safe preview; vision extraction is not connected.",
-                field: "other",
-                live: true,
-              },
-            ],
-          }));
-        }
+        diff = delta / (canvas.width * canvas.height * 3 * 255);
       }
       previous = new Uint8ClampedArray(current);
+      if (diff < LIVE_POLICY.screenChangeThreshold) return;
+      const now = nowS();
+      const off = capRef.current.off;
+      if (!off) trackerRef.current.noteScreenChange(now);
+      if (off) return;
+      if (!visionOn) {
+        if (now - lastLocalAt >= 10) {
+          lastLocalAt = now;
+          cbRef.current.onEvents([{ t: Number(now.toFixed(2)), type: "navigation", object: "Screen changed (vision is off; nothing was read)", confidence: 1, source: "app", local: true }]);
+        }
+        return;
+      }
+      if (inflight || disabled || now - lastVisionAt < LIVE_POLICY.visionMinIntervalS) return;
+      const ratio = v.videoHeight / v.videoWidth || 9 / 16;
+      out.width = 960; out.height = Math.max(1, Math.round(960 * ratio));
+      out.getContext("2d")?.drawImage(v, 0, 0, out.width, out.height);
+      const dataUrl = encodeReadableJpeg(out);
+      const recent = capRef.current.events.filter((e) => e.raw).slice(-3).map((e) => `${e.raw.type}:${e.raw.object}`).join("; ");
+      inflight = true; lastVisionAt = now;
+      const started = performance.now();
+      const t = Number(now.toFixed(2));
+      sessionFetch(sessionId, "/api/vision/extract", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId, frame_id: `live_${Math.round(now * 10)}`, t, data_url: dataUrl, previous_state: recent || undefined }),
+      }).then(async (res) => {
+        const latency = Math.round(performance.now() - started);
+        const body = await res.json().catch(() => ({}));
+        if (res.status === 503) {
+          disabled = true;
+          const why = `not configured${body.missing?.length ? " (" + body.missing.join(", ") + ")" : ""}`;
+          cbRef.current.onVision((p) => ({ calls: (p?.calls || 0) + 1, errors: (p?.errors || 0) + 1, disabled: why }));
+          return;
+        }
+        if (!res.ok) throw new Error(body.error || `status ${res.status}`);
+        cbRef.current.onVision((p) => ({
+          calls: (p?.calls || 0) + 1, events: (p?.events || 0) + (body.events?.length || 0),
+          totalLatencyMs: (p?.totalLatencyMs || 0) + latency, lastLatencyMs: latency,
+          redactions: (p?.redactions || 0) + (body.redaction?.redactions || 0), provider: body.redaction?.provider || p?.provider || null,
+        }));
+        // The frame may have been captured on the record and answered after the expert went off it.
+        if (!capRef.current.off && body.events?.length) cbRef.current.onEvents(body.events);
+      }).catch((err) => {
+        cbRef.current.onVision((p) => ({ calls: (p?.calls || 0) + 1, errors: (p?.errors || 0) + 1, lastError: String(err?.message || err).slice(0, 140) }));
+      }).finally(() => { inflight = false; });
     }, 2000);
     return () => clearInterval(id);
-  }, [stream]); // eslint-disable-line
+  }, [stream, active, visionOn, sessionId]); // eslint-disable-line
 }
 
 /* ============================= DEBRIEF ================================ */
@@ -3061,7 +3221,8 @@ export default function App() {
   const persistedState = useMemo(() => ({
     version: 1,
     page,
-    cap: { ...cap, running: false },
+    // startedAt is a performance.now() reading and means nothing after a reload.
+    cap: { ...cap, running: false, live: cap.live ? { startedAt: null } : null, liveSig: null },
     gaps,
     claims,
     signed,

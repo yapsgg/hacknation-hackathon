@@ -11,7 +11,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test tests/apprentice-state.test.ts tests/phase23.test.ts tests/phase45.test.ts tests/security-boundaries.test.ts tests/system-readiness.test.ts",
+    "test": "tsx --test tests/apprentice-state.test.ts tests/phase23.test.ts tests/phase45.test.ts tests/security-boundaries.test.ts tests/system-readiness.test.ts tests/live-capture.test.ts tests/vision-resilience.test.ts",
     "validate:fixtures": "node scripts/validate-fixtures.mjs",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
@@ -20,7 +20,8 @@
     "todo": "node scripts/generate-todo.mjs",
     "orchestrate": "node scripts/orchestrate.mjs",
     "provision:agents": "node --env-file=.env.local scripts/provision-agents.mjs",
-    "acceptance:local": "node --env-file=.env.local scripts/acceptance.mjs"
+    "acceptance:local": "node --env-file=.env.local scripts/acceptance.mjs",
+    "smoke:redactor": "node --env-file=.env.local scripts/redactor-smoke.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
