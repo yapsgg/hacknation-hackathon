@@ -9,10 +9,16 @@ import {
 import {
   APPRENTICE_GAPS,
   APPRENTICE_RULES,
+  APPRENTICE_SCRIPT,
   APPRENTICE_STEPS,
   CANONICAL_WORK_MAP,
 } from "../lib/apprentice-demo"
 import { TUTOR_RULES } from "../lib/tutor"
+import {
+  evaluateQuestionSlot,
+  type GovernorTrigger,
+  type QuestionKind,
+} from "../lib/question-governor"
 
 const sessionId = "11111111-1111-4111-8111-111111111111"
 const url = `http://localhost/api/apprentice/state?session_id=${sessionId}`
@@ -83,4 +89,47 @@ test("Apprentice UI model stays aligned with canonical Work Map and Tutor rules"
     APPRENTICE_GAPS.map((gap) => gap.id),
     CANONICAL_WORK_MAP.open_gaps?.map((gap) => gap.id)
   )
+})
+
+test("Seeded Capture candidates pass through the shared Question Governor", () => {
+  const candidates = APPRENTICE_SCRIPT.flatMap((event) =>
+    "cands" in event
+      ? event.cands.map((candidate) => ({ ...candidate, eventT: event.t }))
+      : []
+  )
+  assert.equal(candidates.length, 4)
+
+  for (const candidate of candidates) {
+    const decision = evaluateQuestionSlot(
+      {
+        now: candidate.eventT + 2,
+        sessionElapsed: candidate.eventT + 2,
+        voiceSilenceFor: 2,
+        interactionIdleFor: 2,
+        docScrolling: false,
+        lastQuestionAt: null,
+        questionTimes: [],
+        guardrailQuestionAsked: false,
+        trigger: {
+          type: candidate.trigger as GovernorTrigger,
+          at: candidate.eventT,
+        },
+      },
+      [
+        {
+          id: candidate.id,
+          text: candidate.q,
+          anchor: candidate.anchor,
+          kind: (candidate.type === "guardrail"
+            ? "guardrail"
+            : "decision_reason") as QuestionKind,
+          revealValue: candidate.revealValue,
+          onScreenAnchor: candidate.onScreenAnchor,
+          novelty: candidate.novelty,
+          screenAnswerablePenalty: candidate.screenAnswerablePenalty,
+        },
+      ]
+    )
+    assert.equal(decision.granted, true, candidate.id)
+  }
 })

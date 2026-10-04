@@ -1,6 +1,7 @@
 import eventsFixture from "@/fixtures/events.mock.json"
 import workMapFixture from "@/fixtures/work-map.mock.json"
 import { TUTOR_RULES } from "@/lib/tutor"
+import type { GovernorTrigger } from "@/lib/question-governor"
 import type { WorkMap } from "@/lib/types"
 
 export const APPRENTICE_EXPERT = {
@@ -144,13 +145,30 @@ export const APPRENTICE_ACTIVITY = [
   { from: 190, to: 202, type: "reading" },
 ]
 
-const questionAt: Record<number, object[]> = {
+interface ApprenticeQuestionCandidate {
+  id: string
+  q: string
+  type: "reason" | "guardrail"
+  trigger: GovernorTrigger
+  anchor: string
+  revealValue: number
+  onScreenAnchor: number
+  novelty: number
+  screenAnswerablePenalty: number
+}
+
+const questionAt: Record<number, ApprenticeQuestionCandidate[]> = {
   95.4: [
     {
       id: "q-acme",
       q: "You changed Acme from $190,000 to $110,000. Why not add both contracts?",
       type: "reason",
-      score: 0.94,
+      trigger: "value_committed",
+      anchor: "Acme ARR changed from $190,000 to $110,000",
+      revealValue: 0.94,
+      onScreenAnchor: 1,
+      novelty: 1,
+      screenAnswerablePenalty: 0,
     },
   ],
   150.3: [
@@ -158,7 +176,12 @@ const questionAt: Record<number, object[]> = {
       id: "q-relocation",
       q: "What made the $4 million relocation add-back look recurring?",
       type: "reason",
-      score: 0.92,
+      trigger: "doc_closed",
+      anchor: "Relocation invoices from 2021 through 2023",
+      revealValue: 0.92,
+      onScreenAnchor: 1,
+      novelty: 1,
+      screenAnswerablePenalty: 0,
     },
   ],
   199.6: [
@@ -166,7 +189,12 @@ const questionAt: Record<number, object[]> = {
       id: "q-capex",
       q: "When capex is below history, when do you stop and escalate?",
       type: "guardrail",
-      score: 0.91,
+      trigger: "doc_closed",
+      anchor: "Historical capex average of 4.1%",
+      revealValue: 0.91,
+      onScreenAnchor: 1,
+      novelty: 1,
+      screenAnswerablePenalty: 0,
     },
   ],
   205.6: [
@@ -174,7 +202,12 @@ const questionAt: Record<number, object[]> = {
       id: "q-save",
       q: "What must be escalated before these inputs can be committed?",
       type: "guardrail",
-      score: 0.95,
+      trigger: "value_committed",
+      anchor: "Save inputs to model",
+      revealValue: 0.95,
+      onScreenAnchor: 1,
+      novelty: 1,
+      screenAnswerablePenalty: 0,
     },
   ],
 }
@@ -209,5 +242,4 @@ export const APPRENTICE_SCRIPT = [
 ]
 
 export const APPRENTICE_END_T = 218
-export const APPRENTICE_PAUSE_S = 2
 export const APPRENTICE_LIVE_BUDGET = 5
