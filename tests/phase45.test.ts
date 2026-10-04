@@ -12,6 +12,7 @@ import {
 } from "../app/api/tutor/state/route"
 import { redactLocally, redactTranscript } from "../lib/privacy"
 import { evaluateCommit, getExpertMoment, lookupGuardrails } from "../lib/tutor"
+import { GOVERNOR_NUDGE, isGovernorNudge, stripVoiceTags } from "../lib/voice-text"
 import { evaluateTutorRules } from "../lib/tutor-rules"
 
 const sessionId = "11111111-1111-4111-8111-111111111111"
@@ -52,6 +53,13 @@ test("Phase 4 blocks recurring legal fees and exposes expert evidence", () => {
   assert.equal(result.ruleId, "legal-fee-recurrence")
   assert.equal(getExpertMoment(3, result.ruleId)?.frame, "f_0161")
   assert.equal(lookupGuardrails("legal").length, 1)
+})
+
+test("Tutor guardrail lookup accepts rule ids and loose phrases", () => {
+  assert.deepEqual(lookupGuardrails("acme-amendment-language").map((rule) => rule.id), ["acme-amendment-language"])
+  assert.deepEqual(lookupGuardrails("customer-3-add-on").map((rule) => rule.id), ["customer-3-add-on"])
+  assert.ok(lookupGuardrails("relocation recurrence one-time").some((rule) => rule.id === "relocation-recurrence"))
+  assert.equal(lookupGuardrails("unrelated topic").length, 0)
 })
 
 test("Integrated source-check prompts respect reviewed evidence", () => {
@@ -300,4 +308,11 @@ test("Privacy status reports synthetic-only mode without exposing secrets", asyn
       delete process.env.PRESIDIO_ANALYZER_URL
     else process.env.PRESIDIO_ANALYZER_URL = originalPresidioUrl
   }
+})
+
+test("Voice text keeps Governor nudges and stage directions out of transcripts", () => {
+  assert.equal(isGovernorNudge(GOVERNOR_NUDGE), true)
+  assert.equal(isGovernorNudge("Because the amendment replaces it."), false)
+  assert.equal(stripVoiceTags("[slow] Hold on, [calm] I've paused the save."), "Hold on, I've paused the save.")
+  assert.equal(stripVoiceTags("Census row: [PERSON], SSN [SSN]."), "Census row: [PERSON], SSN [SSN].")
 })

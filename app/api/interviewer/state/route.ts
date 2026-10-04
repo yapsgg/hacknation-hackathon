@@ -80,7 +80,9 @@ async function readState(sessionId: string) {
     }
   }
 
-  const [questions, gaps, workMap] = await Promise.all([
+  // Corrections belong to this session, so count its own audit rows rather
+  // than a counter on the shared seed Work Map.
+  const [questions, gaps, corrections] = await Promise.all([
     supabase
       .from("questions")
       .select("id,session_id,text,anchor,step_id,asked_t,answer")
@@ -92,21 +94,19 @@ async function readState(sessionId: string) {
       .eq("session_id", sessionId)
       .order("created_at", { ascending: true }),
     supabase
-      .from("work_maps")
-      .select("correction_count")
-      .eq("is_seed", true)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .from("review_audit")
+      .select("id", { count: "exact", head: true })
+      .eq("session_id", sessionId)
+      .eq("action", "teachback_corrected"),
   ])
   if (questions.error) throw new Error(questions.error.message)
   if (gaps.error) throw new Error(gaps.error.message)
-  if (workMap.error) throw new Error(workMap.error.message)
+  if (corrections.error) throw new Error(corrections.error.message)
   return {
     store: "supabase" as const,
     questions: questions.data ?? [],
     gaps: gaps.data ?? [],
-    correction_count: Number(workMap.data?.correction_count ?? 0),
+    correction_count: corrections.count ?? 0,
   }
 }
 
@@ -260,19 +260,7 @@ export async function POST(request: Request) {
           correction: input.confirmed ? null : input.correction,
         },
       })
-      const state = await readState(sessionId)
-      let correctionCount = state.correction_count
-      if (!input.confirmed) {
-        correctionCount += 1
-        const updated = await supabase
-          .from("work_maps")
-          .update({
-            correction_count: correctionCount,
-            confirmed_by_expert: false,
-          })
-          .eq("is_seed", true)
-        if (updated.error) throw new Error(updated.error.message)
-      }
+      const correctionCount = (await readState(sessionId)).correction_count
       return NextResponse.json({
         ok: true,
         store: "supabase",

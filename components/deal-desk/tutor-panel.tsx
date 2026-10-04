@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { elapsedSeconds, getSessionId } from "@/lib/event-bus"
 import { sessionFetch } from "@/lib/session-client"
+import { stripVoiceTags } from "@/lib/voice-text"
 import { getExpertMoment, lookupGuardrails, TUTOR_RULES } from "@/lib/tutor"
 import type { MasteryState } from "@/lib/types"
 import { cn } from "cn"
@@ -55,7 +56,8 @@ export function TutorPanel() {
 
   const onMessage = React.useCallback(
     (message: MessagePayload) => {
-      if (offRecord || !message.message.trim()) return
+      const text = stripVoiceTags(message.message)
+      if (offRecord || !text) return
       const sessionId = getSessionId()
       void sessionFetch(sessionId, "/api/privacy/transcripts", {
         method: "POST",
@@ -64,7 +66,7 @@ export function TutorPanel() {
           session_id: sessionId,
           t: Number(elapsedSeconds().toFixed(2)),
           role: message.role === "agent" ? "agent" : "user",
-          text: message.message,
+          text,
         }),
       })
     },
