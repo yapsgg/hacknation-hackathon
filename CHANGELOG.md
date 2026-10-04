@@ -261,6 +261,26 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 ---
 
+## [0.0.13] — 2026-10-04
+
+### Done (Phase 2/3 deterministic foundation)
+
+- **Question Governor core** — deterministic slot evaluation now enforces voice silence, app inactivity, no active document scrolling, a 45-second cooldown, five questions per ten minutes, and a recent trigger event.
+- **Question scoring** — candidates are ranked by reveal value, visible anchoring, novelty, and screen-answerable penalty; after six minutes the next available slot is reserved for an unasked guardrail.
+- **Interviewer state API** — the frozen `log_question`, `mark_gap`, `start_debrief`, and `submit_teachback_result` contracts now have validated server persistence through Supabase with an explicit memory fallback.
+- **Gap lifecycle** — open gaps can be closed or waived, debrief startup returns risk-prioritized outstanding work and enforces the three-follow-up minimum, and teach-back corrections increment the Work Map correction count and revoke approval.
+- **Regression coverage** — the Windows-compatible test command now runs both Phase 2/3 and Phase 4/5 suites; 15 tests, lint, typecheck, and the production build pass.
+
+### Still open before Phase 2/3 is complete
+
+- [ ] Feed real ElevenAgents VAD silence, app interaction idle time, document scroll state, and frame-change state into the Question Governor.
+- [ ] Add the Interviewer voice UI, register its client-tool handlers, and send granted slots plus compact screen summaries with `sendContextualUpdate`.
+- [ ] Add the vision-model event extractor and compare its output with the app event stream.
+- [ ] Stream events, questions, and gaps into the browser through Supabase Realtime.
+- [ ] Build the Work Map draft from events, redacted transcripts, answers, and gaps instead of relying only on the seeded fixture.
+
+---
+
 ## Next Steps (to finish the app)
 
 Ordered by the build priority in `ARCHITECTURE.md` §8. Each item lists concrete deliverables and a definition of done.

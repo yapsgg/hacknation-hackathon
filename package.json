@@ -11,7 +11,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test tests/phase45.test.ts",
+    "test": "tsx --test tests/phase23.test.ts tests/phase45.test.ts",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "seed": "node --env-file=.env.local scripts/seed.mjs",
