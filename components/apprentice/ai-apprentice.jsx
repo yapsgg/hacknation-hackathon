@@ -1126,6 +1126,36 @@ function CommandBar({ onDone }) {
 // to speechSynthesis when the key is missing or synthesis fails.
 let ttsUnavailable = false;
 let ttsAudio = null;
+let ttsCtx = null;
+let ttsNode = null;
+// Resume the audio context inside the click handler. play() after the fetch
+// would otherwise be blocked (or fall back to the browser voice) when the
+// user-activation window expires on a slow connection.
+function unlockAudio() {
+  try {
+    if (!ttsCtx) ttsCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ttsCtx.state === "suspended") ttsCtx.resume();
+  } catch { /* ignore */ }
+}
+async function playBlob(blob) {
+  try {
+    if (!ttsCtx) unlockAudio();
+    if (ttsCtx && ttsCtx.state === "running") {
+      const decoded = await ttsCtx.decodeAudioData(await blob.arrayBuffer());
+      try { ttsNode?.stop(); } catch { /* ignore */ }
+      const node = ttsCtx.createBufferSource();
+      node.buffer = decoded;
+      node.connect(ttsCtx.destination);
+      node.start();
+      ttsNode = node;
+      return true;
+    }
+  } catch { /* fall through to the element path */ }
+  try { ttsAudio?.pause(); } catch { /* ignore */ }
+  ttsAudio = new Audio(URL.createObjectURL(blob));
+  await ttsAudio.play();
+  return true;
+}
 function browserSpeak(text) {
   try {
     if (!window.speechSynthesis || !text) return;
@@ -1136,6 +1166,7 @@ function browserSpeak(text) {
 }
 function speakText(on, text) {
   if (!on || !text || typeof window === "undefined") return;
+  unlockAudio();
   if (ttsUnavailable) { browserSpeak(text); return; }
   let sessionId = null;
   try { sessionId = window.localStorage.getItem("apprentice-session-id"); } catch { /* ignore */ }
@@ -1155,9 +1186,7 @@ function speakText(on, text) {
       const blob = await res.blob();
       if (!blob.size) { browserSpeak(text); return; }
       try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
-      try { ttsAudio?.pause(); } catch { /* ignore */ }
-      ttsAudio = new Audio(URL.createObjectURL(blob));
-      await ttsAudio.play().catch(() => browserSpeak(text));
+      await playBlob(blob).catch(() => browserSpeak(text));
     })
     .catch(() => browserSpeak(text));
 }
