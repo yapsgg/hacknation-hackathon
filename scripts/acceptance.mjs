@@ -60,6 +60,32 @@ const purged = await request("/api/privacy/purge", {
 })
 check(purged.response.ok, "off-record purge executes")
 
+// Optional: only meaningful once the redactor and vision key are configured.
+{
+  const { readFile } = await import("node:fs/promises")
+  const frame = await readFile(new URL("../fixtures/synthetic-pii-frame.jpg", import.meta.url))
+  const started = performance.now()
+  const vision = await request("/api/vision/extract", {
+    method: "POST",
+    headers: authHeaders,
+    body: JSON.stringify({
+      session_id: sessionId,
+      frame_id: "acceptance_0001",
+      t: 1,
+      data_url: `data:image/jpeg;base64,${frame.toString("base64")}`,
+    }),
+  })
+  if (vision.response.status === 503) {
+    console.log(`SKIP vision extraction is not configured (${(vision.body?.missing || []).join(", ")})`)
+  } else {
+    check(vision.response.ok, `vision extraction responds (${Math.round(performance.now() - started)} ms)`)
+    check(vision.body?.raw_frame_stored === false && vision.body?.redacted_frame_stored === false, "no frame is stored")
+    const text = JSON.stringify(vision.body?.events ?? [])
+    console.log(`redactor: ${vision.body?.redaction?.provider}; events: ${text.slice(0, 300)}`)
+    check(!/412-55-0193|maria\.gonzalez@/i.test(text), "no synthetic PII reaches the extracted events")
+  }
+}
+
 console.log("\nMANUAL ACCEPTANCE STILL REQUIRED")
 console.log("1. Approve microphone permission and verify a two-way ElevenLabs turn.")
 console.log("2. Start screen share and verify the browser-selected surface only.")

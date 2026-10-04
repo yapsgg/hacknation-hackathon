@@ -222,18 +222,28 @@ After changing `.env.local`, restart Next.js.
 
 ### P1 — make the live capture path real
 
-1. Add the Gemini vision key and exercise `/api/vision/extract` against
-   synthetic shared-screen frames.
-2. Verify redaction visually before judging vision accuracy. Never log or store
-   the raw frame during this test.
-3. Connect redacted vision events to the primary `/apprentice` Capture path.
-   `/deal-desk` already contains the gated frame-to-vision integration; the
-   Apprentice presentation still primarily demonstrates deterministic events.
-4. Feed real ElevenLabs VAD silence, interaction idle time, scroll state, and
-   frame-change state into the existing deterministic Question Governor.
-5. Compare vision events against the hidden app event stream and record
-   accuracy/latency. Do not silently substitute app events while claiming a
-   live vision result.
+Done on `feature/live-capture-readiness` (verify it is merged):
+
+- `/apprentice` live capture feeds the Question Governor from the microphone
+  level, screen change, and redacted vision events (`lib/live-capture.ts`,
+  `hooks/use-voice-activity.ts`). The recorded session remains the fallback.
+- Gemini vision was exercised end to end with a synthetic screen and a
+  pass-through redactor stub. The default model is now the maintained alias
+  `gemini-flash-latest` with a one-shot fallback model on 429/500/503.
+- The Presidio image-redactor adapter now speaks the published contract
+  (multipart upload; raw `application/octet-stream` image bytes back). The
+  previous JSON/`image/jpeg` assumption would have failed against the container.
+
+Still open (needs Docker and a human, see `docs/LIVE_ACCEPTANCE.md`):
+
+1. Run the real Presidio containers, `npm run smoke:redactor`, and **look at
+   the redacted image** before trusting vision.
+2. `npm run acceptance:local` with the redactor on: its PII-leak check must pass.
+3. Chrome mic and screen-share runs with the real ElevenLabs Interviewer.
+4. Vision round trips measured 3 to 11 s; decide whether live questions that
+   lag the screen are acceptable or tune the model/frame size.
+5. Live-answer transcripts are stored redacted but are not yet merged back into
+   the Debrief quotes; the Debrief still uses the canonical gaps.
 6. Consider model augmentation of the deterministic Work Map only after
    redacted live inputs are reliable. Preserve schema validation and the
    deterministic fallback.

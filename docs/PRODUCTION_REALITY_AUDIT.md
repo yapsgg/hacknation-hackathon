@@ -20,6 +20,13 @@ not. The machine-readable version is `GET /api/system/readiness`.
 - Transcripts pass through Presidio when it is configured. Presidio failure
   blocks storage instead of falling back after a live-service error.
 - Browser screen sharing and local frame-difference sampling work.
+- `/apprentice` **live capture** feeds the same Question Governor from real
+  signals: microphone level (measured locally, never recorded), screen-change
+  sampling, and redacted vision events. Questions are template-built from the
+  event, the Governor still decides whether to ask, and screen text is
+  sanitised before it reaches the question. Verified end to end against Gemini
+  with a synthetic screen and a pass-through redactor stub; **not yet verified
+  against the real Presidio image redactor** (see `docs/LIVE_ACCEPTANCE.md`).
 - A redaction-first server vision route now accepts changed frames, calls a
   dedicated image redactor, and sends only the returned image to Gemini. It
   validates the model response against the capture-event contract and retains
@@ -31,8 +38,11 @@ not. The machine-readable version is `GET /api/system/readiness`.
 
 ## What is still demo or incomplete
 
-- `/apprentice` still uses deterministic captured events and activity signals.
-  Browser speech remains available only as the no-key fallback.
+- The recorded `/apprentice` session still uses deterministic events and
+  activity signals; it is the deliberate no-key and fallback path. Live capture
+  needs a microphone, a shared screen, and (for any question to be generated)
+  vision configured. Measured vision round trips were 3 to 11 s, so live
+  questions can lag the screen. Browser speech remains the no-key fallback.
 - Vision remains disabled until an image-redactor URL and vision key are
   configured. Local Presidio image redaction can run without cloud credentials.
 - The Work Map compiler is deterministic and starts from the seeded workflow

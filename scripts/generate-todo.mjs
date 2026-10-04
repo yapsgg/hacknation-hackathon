@@ -32,6 +32,17 @@ const completedHints = [
   "tutor agent",
   "presidio on transcripts",
   "validate fixtures against the schemas in ci",
+  "lock the exact demo script",
+  "lock the demo script",
+  "elevenagents interviewer",
+  "vision loop",
+  "context pusher",
+  "get_screen_state() client tool",
+  "pre-bake the work map",
+  "recorded fallback session",
+  "add the interviewer voice ui",
+  "replace browser speech preview",
+  "feed real elevenagents vad",
 ]
 
 const supersededHints = [
