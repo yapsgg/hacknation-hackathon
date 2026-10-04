@@ -1,6 +1,6 @@
 # AI Apprentice TODO
 
-Generated from [CHANGELOG.md](./CHANGELOG.md) by npm run todo on 2026-10-03.
+Generated from [CHANGELOG.md](./CHANGELOG.md) by npm run todo on 2026-10-04.
 
 The generator reconciles old unchecked checklist items against later Done sections. Treat this file as the team work queue; treat the changelog as the historical record.
 
@@ -82,6 +82,11 @@ The generator reconciles old unchecked checklist items against later Done sectio
 - [x] **Privacy controls preserved** — synthetic-only readiness, frame-retention authorization, capture counts, off-record purge windows, and deletion counts remain visible in the redesigned Apprentice panel. _(source: [0.0.12] — 2026-10-04 / Done (latest Deal Desk UI integrated with Phase 4/5))_
 - [x] **Integrated acceptance pass** — wrong Acme ARR was blocked, corrected ARR values saved, off-record purged the active window, and the seven-step debrief published successfully in the local browser with no console errors. _(source: [0.0.12] — 2026-10-04 / Done (latest Deal Desk UI integrated with Phase 4/5))_
 - [x] **Validation** — tests, lint, typecheck, and production build pass; focused tests cover the new source-check prompt suppression after evidence is reviewed. _(source: [0.0.12] — 2026-10-04 / Done (latest Deal Desk UI integrated with Phase 4/5))_
+- [x] **Question Governor core** — deterministic slot evaluation now enforces voice silence, app inactivity, no active document scrolling, a 45-second cooldown, five questions per ten minutes, and a recent trigger event. _(source: [0.0.13] — 2026-10-04 / Done (Phase 2/3 deterministic foundation))_
+- [x] **Question scoring** — candidates are ranked by reveal value, visible anchoring, novelty, and screen-answerable penalty; after six minutes the next available slot is reserved for an unasked guardrail. _(source: [0.0.13] — 2026-10-04 / Done (Phase 2/3 deterministic foundation))_
+- [x] **Interviewer state API** — the frozen `log_question`, `mark_gap`, `start_debrief`, and `submit_teachback_result` contracts now have validated server persistence through Supabase with an explicit memory fallback. _(source: [0.0.13] — 2026-10-04 / Done (Phase 2/3 deterministic foundation))_
+- [x] **Gap lifecycle** — open gaps can be closed or waived, debrief startup returns risk-prioritized outstanding work and enforces the three-follow-up minimum, and teach-back corrections increment the Work Map correction count and revoke approval. _(source: [0.0.13] — 2026-10-04 / Done (Phase 2/3 deterministic foundation))_
+- [x] **Regression coverage** — the Windows-compatible test command now runs both Phase 2/3 and Phase 4/5 suites; 15 tests, lint, typecheck, and the production build pass. _(source: [0.0.13] — 2026-10-04 / Done (Phase 2/3 deterministic foundation))_
 - [x] **Define shared schemas** — create `/schemas/` with `event.schema.json` and `work-map.schema.json` exactly as specified in `ARCHITECTURE.md` §2–3. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
 - [x] **Client tool contract** — agree on names and signatures: `get_screen_state`, `log_question`, `mark_gap`, `start_debrief`, `submit_teachback_result`, `block_commit`, `replay_moment`, `update_mastery`, `lookup_guardrail`, `get_expert_moment`. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
 - [x] **Mock event stream** — `fixtures/events.mock.json` so each engineer can develop independently. _(source: Next Steps (to finish the app) / Phase 0 — Foundation (0:00–0:30))_
@@ -109,6 +114,11 @@ The generator reconciles old unchecked checklist items against later Done sectio
 - [ ] Persist task runs, worker artifacts, test evidence, and reviewer decisions. _(source: [0.0.6] — 2026-10-04 / Still open for orchestration)_
 - [ ] Add CI validation that rejects a task when its claimed files overlap another active task. _(source: [0.0.6] — 2026-10-04 / Still open for orchestration)_
 - [ ] Test microphone/screen-share permissions and the voice phrase “off the record” in Chrome on the demo laptop. _(source: [0.0.9] — 2026-10-04 / Deployment action required for Phase 5)_
+- [ ] Feed real ElevenAgents VAD silence, app interaction idle time, document scroll state, and frame-change state into the Question Governor. _(source: [0.0.13] — 2026-10-04 / Still open before Phase 2/3 is complete)_
+- [ ] Add the Interviewer voice UI, register its client-tool handlers, and send granted slots plus compact screen summaries with `sendContextualUpdate`. _(source: [0.0.13] — 2026-10-04 / Still open before Phase 2/3 is complete)_
+- [ ] Add the vision-model event extractor and compare its output with the app event stream. _(source: [0.0.13] — 2026-10-04 / Still open before Phase 2/3 is complete)_
+- [ ] Stream events, questions, and gaps into the browser through Supabase Realtime. _(source: [0.0.13] — 2026-10-04 / Still open before Phase 2/3 is complete)_
+- [ ] Build the Work Map draft from events, redacted transcripts, answers, and gaps instead of relying only on the seeded fixture. _(source: [0.0.13] — 2026-10-04 / Still open before Phase 2/3 is complete)_
 - [ ] **ElevenAgents interviewer** — create agent, set voice + Expressive Mode, write the interviewer system prompt (`ARCHITECTURE.md` §6), get a bare-page voice conversation working. _(source: Next Steps (to finish the app) / Phase 2 — Capture intelligence (0:30–2:30, Engineer A))_
 - [ ] **Vision loop** — send previous-state summary + new frame to the vision model with structured output matching the event schema; extract `salient_text`. _(source: Next Steps (to finish the app) / Phase 2 — Capture intelligence (0:30–2:30, Engineer A))_
 - [ ] **Context pusher** — push a compact rolling summary to the agent as non-interrupting contextual updates. _(source: Next Steps (to finish the app) / Phase 2 — Capture intelligence (0:30–2:30, Engineer A))_
