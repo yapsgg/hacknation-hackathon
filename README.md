@@ -19,6 +19,8 @@ No API keys are required for the synthetic seeded demo. It uses deterministic fi
 
 See [docs/LOCAL_DEVELOPMENT.md](./docs/LOCAL_DEVELOPMENT.md) for environment variables, validation commands, branch workflow, and troubleshooting.
 
+See [docs/PRODUCTION_REALITY_AUDIT.md](./docs/PRODUCTION_REALITY_AUDIT.md) for the exact boundary between executable product behavior, synthetic fallbacks, and work still required before using sensitive data. The same report is available at `GET /api/system/readiness`.
+
 ## Validate a change
 
 ```powershell

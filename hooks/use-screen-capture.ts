@@ -28,6 +28,23 @@ interface UseScreenCaptureResult {
 
 const SAMPLE_WIDTH = 48
 const SAMPLE_HEIGHT = 27
+const OUTPUT_WIDTH = 960
+const MAX_ENCODED_LENGTH = 320_000
+
+export function encodeReadableJpeg(canvas: HTMLCanvasElement): string {
+  let encoded = canvas.toDataURL("image/jpeg", 0.55)
+  if (encoded.length <= MAX_ENCODED_LENGTH) return encoded
+  encoded = canvas.toDataURL("image/jpeg", 0.35)
+  if (encoded.length <= MAX_ENCODED_LENGTH) return encoded
+
+  const smaller = document.createElement("canvas")
+  smaller.width = 720
+  smaller.height = Math.max(1, Math.round((canvas.height / canvas.width) * 720))
+  smaller
+    .getContext("2d")
+    ?.drawImage(canvas, 0, 0, smaller.width, smaller.height)
+  return smaller.toDataURL("image/jpeg", 0.35)
+}
 
 export function useScreenCapture({
   fps = 1,
@@ -41,6 +58,7 @@ export function useScreenCapture({
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const outputCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const prevGrayRef = useRef<Uint8Array | null>(null)
@@ -85,14 +103,16 @@ export function useScreenCapture({
     const gray = new Uint8Array(SAMPLE_WIDTH * SAMPLE_HEIGHT)
     for (let i = 0; i < gray.length; i += 1) {
       const o = i * 4
-      gray[i] = (data[o] * 0.299 + data[o + 1] * 0.587 + data[o + 2] * 0.114) | 0
+      gray[i] =
+        (data[o] * 0.299 + data[o + 1] * 0.587 + data[o + 2] * 0.114) | 0
     }
 
     let diff = 1
     const prev = prevGrayRef.current
     if (prev) {
       let sum = 0
-      for (let i = 0; i < gray.length; i += 1) sum += Math.abs(gray[i] - prev[i])
+      for (let i = 0; i < gray.length; i += 1)
+        sum += Math.abs(gray[i] - prev[i])
       diff = sum / gray.length / 255
     }
     prevGrayRef.current = gray
@@ -102,11 +122,23 @@ export function useScreenCapture({
 
     if (diff >= diffThreshold) {
       setChangedCount((count) => count + 1)
+      let outputCanvas = outputCanvasRef.current
+      if (!outputCanvas) {
+        outputCanvas = document.createElement("canvas")
+        outputCanvasRef.current = outputCanvas
+      }
+      const ratio =
+        video.videoWidth > 0 ? video.videoHeight / video.videoWidth : 9 / 16
+      outputCanvas.width = OUTPUT_WIDTH
+      outputCanvas.height = Math.max(1, Math.round(OUTPUT_WIDTH * ratio))
+      outputCanvas
+        .getContext("2d")
+        ?.drawImage(video, 0, 0, outputCanvas.width, outputCanvas.height)
       onFrameRef.current?.({
         id: `f_${String(frameSeqRef.current).padStart(4, "0")}`,
         t: Number((performance.now() / 1000).toFixed(2)),
         diff,
-        dataUrl: canvas.toDataURL("image/jpeg", 0.5),
+        dataUrl: encodeReadableJpeg(outputCanvas),
       })
     }
   }, [diffThreshold])

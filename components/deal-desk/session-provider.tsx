@@ -8,6 +8,7 @@ import {
 } from "@/hooks/use-screen-capture"
 import {
   emitAppEvent,
+  emitVisionEvent,
   elapsedSeconds,
   getSessionId,
   getSnapshot,
@@ -26,6 +27,7 @@ import {
 import type { CaptureEvent, MasteryState } from "@/lib/types"
 import { LBO_LINES, type LineStatus } from "@/lib/lbo"
 import { getVdrDoc } from "@/lib/vdr"
+import { sessionFetch } from "@/lib/session-client"
 
 export interface Interjection {
   id: string
@@ -87,10 +89,11 @@ interface DealDeskContextValue {
 const DealDeskContext = React.createContext<DealDeskContextValue | null>(null)
 
 async function patchTutorState(body: Record<string, unknown>) {
-  const response = await fetch("/api/tutor/state", {
+  const sessionId = getSessionId()
+  const response = await sessionFetch(sessionId, "/api/tutor/state", {
     method: "PATCH",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ session_id: getSessionId(), ...body }),
+    body: JSON.stringify({ session_id: sessionId, ...body }),
   })
   if (!response.ok) throw new Error("Tutor state persistence failed")
   const result = (await response.json()) as {
@@ -144,7 +147,10 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     startSession()
     const sessionId = getSessionId()
-    void fetch(`/api/tutor/state?session_id=${encodeURIComponent(sessionId)}`)
+    void sessionFetch(
+      sessionId,
+      `/api/tutor/state?session_id=${encodeURIComponent(sessionId)}`
+    )
       .then(async (response) => {
         if (!response.ok) throw new Error("Tutor state load failed")
         return response.json() as Promise<{
@@ -175,22 +181,41 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
   )
 
   const handleFrame = React.useCallback((frame: CapturedFrame) => {
-    if (
-      framesNotStoredRef.current ||
-      !frameRetentionReadyRef.current ||
-      offRecordRef.current ||
-      !workMapApprovedRef.current
-    ) {
-      return
-    }
+    if (offRecordRef.current || !workMapApprovedRef.current) return
     const normalized = { ...frame, t: Number(elapsedSeconds().toFixed(2)) }
-    setFrames((prev) => [normalized, ...prev].slice(0, 12))
     if (!normalized.dataUrl) return
-    void fetch("/api/privacy/frames", {
+    const sessionId = getSessionId()
+
+    if (process.env.NEXT_PUBLIC_ENABLE_VISION === "true") {
+      void sessionFetch(sessionId, "/api/vision/extract", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          session_id: sessionId,
+          frame_id: normalized.id,
+          t: normalized.t,
+          data_url: normalized.dataUrl,
+          previous_state: getSnapshot()
+            .slice(-3)
+            .map((event) => `${event.type}:${event.object}`)
+            .join("; "),
+        }),
+      })
+        .then(async (response) => {
+          if (!response.ok) throw new Error("Vision extraction failed")
+          const result = (await response.json()) as { events?: CaptureEvent[] }
+          for (const event of result.events ?? []) emitVisionEvent(event)
+        })
+        .catch(() => setSyncStatus("error"))
+    }
+
+    if (framesNotStoredRef.current || !frameRetentionReadyRef.current) return
+    setFrames((prev) => [normalized, ...prev].slice(0, 12))
+    void sessionFetch(sessionId, "/api/privacy/frames", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        session_id: getSessionId(),
+        session_id: sessionId,
         frame_id: normalized.id,
         t: normalized.t,
         data_url: normalized.dataUrl,
@@ -208,10 +233,11 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
 
   const purgeWindow = React.useCallback(async (from: number, to: number) => {
     purgeEvents(from, to)
-    const response = await fetch("/api/privacy/purge", {
+    const sessionId = getSessionId()
+    const response = await sessionFetch(sessionId, "/api/privacy/purge", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ session_id: getSessionId(), from, to }),
+      body: JSON.stringify({ session_id: sessionId, from, to }),
     })
     if (!response.ok) throw new Error("Privacy purge failed")
     const result = (await response.json()) as {
@@ -269,10 +295,11 @@ export function DealDeskProvider({ children }: { children: React.ReactNode }) {
     frameRetentionReadyRef.current = false
     setFramesNotStoredState(value)
     if (value) setFrames([])
-    void fetch("/api/privacy/retention", {
+    const sessionId = getSessionId()
+    void sessionFetch(sessionId, "/api/privacy/retention", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ session_id: getSessionId(), retained: !value }),
+      body: JSON.stringify({ session_id: sessionId, retained: !value }),
     })
       .then(async (response) => {
         if (!response.ok) throw new Error("Frame retention update failed")

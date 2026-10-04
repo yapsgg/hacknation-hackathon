@@ -1,46 +1,59 @@
 import { NextResponse } from "next/server"
 
+import {
+  createSignedConversationSession,
+  VoiceConfigurationError,
+} from "@/lib/elevenlabs-session"
+import { checkRateLimit, rateLimitResponse } from "@/lib/security/rate-limit"
+import {
+  authorizeSessionRequest,
+  getSecurityMode,
+  sessionAuthorizationResponse,
+  validSessionId,
+} from "@/lib/security/session-capability"
+
 export const runtime = "nodejs"
 
-export async function POST() {
-  const agentId = process.env.ELEVENLABS_TUTOR_AGENT_ID?.trim()
-  if (!agentId) {
+export async function POST(request?: Request) {
+  const limited = rateLimitResponse(
+    checkRateLimit(request, {
+      namespace: "tutor-session",
+      limit: 10,
+      windowMs: 60_000,
+    })
+  )
+  if (limited) return limited
+
+  if (getSecurityMode() === "enforce") {
+    const sessionId = request?.headers.get("x-session-id")
+    if (!request || !validSessionId(sessionId)) {
+      return NextResponse.json(
+        { error: "A valid x-session-id is required." },
+        { status: 401 }
+      )
+    }
+    const unauthorized = sessionAuthorizationResponse(
+      authorizeSessionRequest(request, sessionId)
+    )
+    if (unauthorized) return unauthorized
+  }
+
+  try {
+    return NextResponse.json(
+      await createSignedConversationSession("ELEVENLABS_TUTOR_AGENT_ID")
+    )
+  } catch (error) {
+    if (error instanceof VoiceConfigurationError) {
+      return NextResponse.json(
+        { error: "Tutor voice is not configured.", missing: error.missing },
+        { status: 503 }
+      )
+    }
     return NextResponse.json(
       {
-        error: "Tutor voice is not configured.",
-        missing: ["ELEVENLABS_TUTOR_AGENT_ID"],
+        error: error instanceof Error ? error.message : "Tutor session failed.",
       },
-      { status: 503 }
-    )
-  }
-
-  const apiKey = process.env.ELEVENLABS_API_KEY?.trim()
-  if (!apiKey) {
-    return NextResponse.json({ agent_id: agentId, auth: "public" })
-  }
-
-  const url = new URL(
-    "https://api.elevenlabs.io/v1/convai/conversation/get-signed-url"
-  )
-  url.searchParams.set("agent_id", agentId)
-  const response = await fetch(url, {
-    headers: { "xi-api-key": apiKey },
-    cache: "no-store",
-  })
-  if (!response.ok) {
-    const message = await response.text()
-    return NextResponse.json(
-      { error: `ElevenLabs session failed: ${message.slice(0, 300)}` },
       { status: 502 }
     )
   }
-
-  const payload = (await response.json()) as { signed_url?: unknown }
-  if (typeof payload.signed_url !== "string") {
-    return NextResponse.json(
-      { error: "ElevenLabs did not return a signed URL." },
-      { status: 502 }
-    )
-  }
-  return NextResponse.json({ signed_url: payload.signed_url, auth: "signed" })
 }

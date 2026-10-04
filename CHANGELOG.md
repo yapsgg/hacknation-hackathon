@@ -386,6 +386,47 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 ---
 
+## [0.0.21] — 2026-10-03
+
+### Done (production-reality audit and signed voice boundary)
+
+- **Machine-readable readiness** — `GET /api/system/readiness` distinguishes executable synthetic workflow logic from configured live services and sensitive-data readiness without exposing secrets.
+- **Truthful Trust UI** — `/apprentice` now displays each runtime capability and its blockers. Claims that frame redaction and deal-room permission integration already exist were removed.
+- **Private voice sessions** — shared ElevenLabs session signing powers both `/api/interviewer/session` and `/api/tutor/session`; missing keys or agent ids fail closed instead of silently using a public agent.
+- **Live primary Interviewer** — `/apprentice` mounts the official ElevenLabs React SDK, registers all Interviewer client tools plus spoken off-record control, and pushes granted Question Governor slots as contextual updates. Browser speech remains only the no-key fallback.
+- **Reality audit** — `docs/PRODUCTION_REALITY_AUDIT.md` records which endpoints are durable, which paths are synthetic, why no webhook is currently required, and the security boundary.
+- **Regression coverage** — readiness and Interviewer fail-closed behavior increase the suite from 21 to 23 tests. Tests, lint, typecheck, production build, and the production dependency audit pass.
+
+### Still open before the system handles real work
+
+- [ ] Implement privacy-reviewed server-side frame redaction and vision extraction; the current Apprentice screen share only detects local frame changes.
+- [ ] Add application authentication and per-session authorization before allowing confidential or personal data.
+- [ ] Replace global anonymous Realtime reads with authenticated session-scoped policies, then add browser subscriptions.
+- [ ] Add rate limiting and origin/CSRF protections to API mutations.
+- [ ] Run the credentialed microphone, screen-share, Presidio, Supabase deletion, and off-record acceptance checks.
+
+## [0.0.22] — 2026-10-04
+
+### Done (live capture readiness)
+
+- **Live capture in `/apprentice`** — the Question Governor can now be fed by real signals instead of the recorded script: microphone level (measured locally, never recorded or sent), screen-change sampling, and redacted vision events. The recorded session remains the default fallback. Live mode fails closed without the microphone.
+- **Template-built live questions** — vision events become candidate questions through fixed templates (`lib/live-capture.ts`); screen text is sanitised and length-capped so it cannot inject instructions. The Governor still decides whether to ask, and trigger recency runs from detection time because vision answers in seconds.
+- **Vision verified end to end** — real Gemini calls against a synthetic screen, with a pass-through redactor stub, extracted correct events (3 to 11 s round trip). A resilience fix retries once on a fallback model on 429/500/503, and the default model is the maintained `gemini-flash-latest` alias (the pinned `gemini-2.5-flash` returns 404 for new keys).
+- **Presidio image-redactor adapter fixed** — it now uses the published contract (multipart upload, raw image bytes back). The old JSON/`image/jpeg` assumption would have failed against the container. Non-image answers are rejected before anything reaches the vision model.
+- **Acceptance tooling** — `npm run smoke:redactor` writes the redacted synthetic PII frame for a human to inspect; `acceptance.mjs` now also checks that vision stores nothing and that no synthetic PII reaches extracted events (it fails with a pass-through redactor, as it should).
+- **Docs** — `docs/LIVE_ACCEPTANCE.md` (runbook for a Mac with Docker), `docs/DEMO_SCRIPT.md`, `docs/PITCH_DECK.md`, `docs/DRY_RUN_CHECKLIST.md`. The reality audit and readiness endpoint now describe live capture accurately.
+- **Regression coverage** — 40 tests (live signals, Governor gating, sanitisation, vision fallback and redactor contract).
+
+### Still open
+
+- [ ] Run the real Presidio containers on a Mac with Docker, inspect `npm run smoke:redactor` output by eye, and pass `acceptance.mjs` including its PII-leak check (`docs/LIVE_ACCEPTANCE.md`).
+- [ ] Chrome microphone and screen-share run of live capture and the signed ElevenLabs Interviewer on the demo laptop.
+- [ ] Merge live-answer transcripts back into the Debrief quotes (stored redacted today, not yet shown).
+- [ ] Hosted private Presidio URLs and Vercel env before vision can run on the deployed site.
+- [ ] Two production dry runs and a backup video (`docs/DRY_RUN_CHECKLIST.md`).
+
+---
+
 ## Next Steps (to finish the app)
 
 Ordered by the build priority in `ARCHITECTURE.md` §8. Each item lists concrete deliverables and a definition of done.

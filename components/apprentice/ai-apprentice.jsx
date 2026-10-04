@@ -2,11 +2,12 @@
 
 /* eslint-disable react/no-unescaped-entities */
 
-import { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, useSyncExternalStore, createContext, useContext } from "react";
 import {
   MonitorUp, Play, Pause, FastForward, EyeOff, Check, X, PenLine, Download, Copy, RotateCcw, AlertTriangle,
   Lock, Square, Volume2, VolumeX, Keyboard, BookOpen, MessageSquare, Mic, Search, Hand, Bot, Database,
   UserCheck, ShieldCheck, Clock, Users, Menu, Sun, Moon, Monitor, ChevronDown, Info, FileText, Flag,
+  ChevronLeft, ChevronRight, ArrowUpRight,
 } from "lucide-react";
 import {
   APPRENTICE_ACTIVITY,
@@ -22,6 +23,12 @@ import {
   APPRENTICE_STEPS,
 } from "@/lib/apprentice-demo";
 import { evaluateQuestionSlot, QUESTION_GOVERNOR_POLICY } from "@/lib/question-governor";
+import { LiveInterviewer } from "@/components/apprentice/live-interviewer";
+import { sessionFetch } from "@/lib/session-client";
+import { LIVE_POLICY, LiveSignalTracker, describeLiveEvent, liveCandidatesFromEvent, liveEventField } from "@/lib/live-capture";
+import { useVoiceActivity } from "@/hooks/use-voice-activity";
+import { encodeReadableJpeg } from "@/hooks/use-screen-capture";
+import { ATLAS_FILES, BEACON_FILES, DocFace, fileById } from "./work-files";
 
 /* ------------------------------------------------------------------
    The AI Apprentice: starter UI, rebuilt on the Mono design practices.
@@ -188,6 +195,7 @@ const CSS = `
 .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .g-main{grid-template-columns:minmax(0,1fr) 360px}
 .g-wide{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
+.g-files{grid-template-columns:280px minmax(0,1fr);align-items:start}
 .g-map{grid-template-columns:minmax(0,.8fr) minmax(0,1.5fr)}
 .g-ov{grid-template-columns:minmax(0,1fr) 320px}
 .divider{height:1px;background:var(--line)}
@@ -321,6 +329,56 @@ button.time{color:var(--action);background:var(--action-wash);text-decoration:un
 .scr-msg.bad{background:var(--warning-wash);border-color:var(--warning);color:var(--text)}
 .scr-msg.good{background:var(--success-wash);border-color:var(--success);color:var(--text)}
 
+/* ---------- rendered work files: workbook and PDF ---------- */
+.file-face{border:1px solid var(--scr-line);border-radius:6px;overflow:hidden;background:#fff;color:#1a1d21}
+.ap.dark .file-face{background:#1c1f24;color:#e8eaed;border-color:#3c424a}
+.xl-chrome{display:flex;align-items:center;gap:8px;padding:4px 8px;background:#217346;color:#fff;font-size:11px;font-weight:600}
+.xl-formula{display:grid;grid-template-columns:52px minmax(0,1fr);border-bottom:1px solid #d0d7de;background:#f6f8fa;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px}
+.ap.dark .xl-formula{background:#25282e;border-color:#3c424a}
+.xl-name{padding:4px 6px;border-right:1px solid #d0d7de;color:#57606a;font-weight:600}
+.ap.dark .xl-name{border-color:#3c424a;color:#9aa3ad}
+.xl-fx{padding:4px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xl-wrap{overflow:auto;max-height:420px}
+.xl{border-collapse:collapse;width:max-content;min-width:100%;font-size:11px;line-height:14px;font-variant-numeric:tabular-nums}
+.xl th,.xl td{border:1px solid #d0d7de;padding:3px 6px;white-space:nowrap}
+.ap.dark .xl th,.ap.dark .xl td{border-color:#3c424a}
+.xl th{background:#f3f4f6;color:#57606a;font-weight:600;text-align:center;position:sticky;top:0}
+.ap.dark .xl th{background:#2a2e34;color:#b3bbc4}
+.xl .rn{background:#f3f4f6;color:#57606a;text-align:right;width:28px;position:sticky;left:0}
+.ap.dark .xl .rn{background:#2a2e34;color:#b3bbc4}
+.xl td.num{text-align:right;font-variant-numeric:tabular-nums}
+.xl tr.hl td{background:#fff4cc}
+.ap.dark .xl tr.hl td{background:#3a3218}
+.xl tr.total td{font-weight:700;border-top:2px solid #1a1d21}
+.ap.dark .xl tr.total td{border-top-color:#e8eaed}
+.xl-tabs{display:flex;gap:2px;padding:4px 6px;background:#f3f4f6;border-top:1px solid #d0d7de;overflow:auto}
+.ap.dark .xl-tabs{background:#25282e;border-color:#3c424a}
+.xl-tabs button{height:22px;padding:0 10px;border-radius:4px 4px 0 0;border:1px solid transparent;font-size:11px;color:#1a1d21}
+.ap.dark .xl-tabs button{color:#e8eaed}
+.xl-tabs button[aria-selected="true"]{background:#fff;border-color:#d0d7de;border-bottom-color:#fff;font-weight:600}
+.ap.dark .xl-tabs button[aria-selected="true"]{background:#1c1f24;border-color:#3c424a;border-bottom-color:#1c1f24}
+.pdf-page{background:#fff;color:#1a1d21;padding:16px 18px 20px;min-height:280px;box-shadow:inset 0 0 0 1px #e6e8eb}
+.ap.dark .pdf-page{background:#f4f1ea;color:#1a1d21}
+.pdf-banner{display:flex;justify-content:space-between;gap:8px;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#8a3b12;border-bottom:2px solid #1a1d21;padding-bottom:6px;margin-bottom:10px;font-weight:700}
+.pdf-title{font-size:15px;line-height:20px;font-weight:700;margin-bottom:2px}
+.pdf-sub{font-size:11px;color:#3d4450;margin-bottom:10px}
+.pdf-meta{display:grid;grid-template-columns:110px minmax(0,1fr);gap:2px 8px;font-size:11px;margin-bottom:12px}
+.pdf-meta dt{color:#5c6570;font-weight:600}
+.pdf-clause{margin:0 0 8px;font-size:11.5px;line-height:16px}
+.pdf-clause strong{font-weight:700}
+.pdf-clause.hl{background:#fff4cc;padding:4px 6px;border-left:3px solid #8a3b12}
+.pdf-foot{display:flex;justify-content:space-between;margin-top:14px;padding-top:6px;border-top:1px solid #c8ccd2;font-size:9px;color:#5c6570}
+.file-list{display:flex;flex-direction:column;gap:2px}
+.file-list button{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;width:100%;text-align:left;padding:8px;border-radius:8px}
+.file-list button:hover{background:var(--card-2)}
+.file-list button[aria-pressed="true"]{background:var(--action-wash);color:var(--action)}
+.file-ext{font-size:10px;font-weight:700;letter-spacing:.04em;padding:1px 5px;border-radius:3px;background:var(--card-2);color:var(--text-2)}
+.file-ext.xlsx{background:#e5f4ea;color:#0d5c2e}
+.file-ext.pdf{background:#fde8e6;color:#8a221c}
+.file-ext.docx{background:#e7f0fb;color:#0b4f8a}
+.scr.compact .xl-wrap{max-height:220px}
+.scr.compact .pdf-page{min-height:0;padding:12px}
+
 /* ---------- work map ---------- */
 .track{position:relative;height:64px;margin:0 16px}
 .track-line{position:absolute;left:0;right:0;top:22px;height:2px;background:var(--line)}
@@ -395,7 +453,7 @@ button.time{color:var(--action);background:var(--action-wash);text-decoration:un
   .g-main{grid-template-columns:minmax(0,1fr) 320px}
 }
 @media (max-width:1100px){
-  .g-main,.g-wide,.g-map,.g-ov{grid-template-columns:minmax(0,1fr)}
+  .g-main,.g-wide,.g-map,.g-ov,.g-files{grid-template-columns:minmax(0,1fr)}
   .tbl thead{display:none}
   .tbl tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:8px 0;border-top:1px solid var(--line)}
   .tbl td{padding:0;border:0}
@@ -484,18 +542,8 @@ const CASES = [
 ];
 
 const TEACH_DOCS = {
-  rev: [
-    { id: "arr", name: "4.2 ARR schedule (management).xlsx", lines: [["Crestline Health: MSA $80,000 + Software Agreement $110,000", true], ["Crestline Health ARR: $190,000"], ["Prepared by management, Mar 2025"]] },
-    { id: "msa", name: "3.1 Crestline Health MSA (Feb 2023).pdf", lines: [["Schedule A: annual fees $80,000"], ["Term: 3 years, renews automatically"]] },
-    { id: "sw25", name: "3.1 Crestline Health Software Agreement (Jan 2025).pdf", lines: [["§1.2 This Agreement supersedes and replaces the Master Services Agreement dated 9 February 2023, including Schedule A.", true], ["Annual fees: $110,000"]] },
-    { id: "bridge", name: "6.1 Adjusted EBITDA bridge (management).xlsx", lines: [["Reported EBITDA 2024: $31.2M"], ["Relocation, one-time: +$4.0M", true], ["Adjusted EBITDA: $35.2M"]] },
-    { id: "gl", name: "5.2 GL detail 2022–2024, facilities.xlsx", lines: [["Relocation and facility moves, 2022: $1.4M"], ["2023: $1.9M"], ["2024: $1.6M"], ["Vendor: Summit Relocation Group, every year", true]] },
-  ],
-  lbo: [
-    { id: "plan", name: "7.3 Capex plan (management case).xlsx", lines: [["Maintenance capex 2026–2030: 1.6% of revenue", true], ["Note: “efficiency program”"]] },
-    { id: "far", name: "7.5 Fixed asset register, history.xlsx", lines: [["2021: 3.8% of revenue"], ["2022: 4.2%"], ["2023: 3.9%"], ["2024: 4.1%"], ["Average: 4.0%", true]] },
-    { id: "deck", name: "2.1 Management presentation.pdf", lines: [["“Modernized equipment requires less maintenance”"], ["No lease, warranty or vendor terms attached", true]] },
-  ],
+  rev: ["arr", "msa", "sw25", "bridge", "gl"].map((id) => BEACON_FILES.find((f) => f.id === id)),
+  lbo: ["plan", "far", "deck"].map((id) => BEACON_FILES.find((f) => f.id === id)),
 };
 
 /* =========================== helpers ================================== */
@@ -537,6 +585,7 @@ function initCap() {
     queue: [], dyn: [], pending: null, askingUntil: 0, agent: "idle", agentLine: "", holdReason: "",
     governor: { reason: "Waiting for a trigger", trigger: null, score: null },
     off: false, offSegs: [], suppressed: 0, redacted: 0, done: false, interruptions: 0,
+    live: null, liveSig: null, vision: null,
   };
 }
 
@@ -565,40 +614,9 @@ function signalsAt(cap, t) {
   };
 }
 
-function stepCap(prev, dt) {
-  if (prev.done) return prev;
-  const c = { ...prev, events: [...prev.events], transcript: [...prev.transcript], asked: [...prev.asked],
-    queue: [...prev.queue], deferred: [...prev.deferred], dropped: [...prev.dropped], dyn: [...prev.dyn], offSegs: [...prev.offSegs] };
-  const t = Math.min(END_T, prev.t + dt);
-
-  while (c.ei < SCRIPT.length && SCRIPT[c.ei].t <= t) {
-    const e = SCRIPT[c.ei++];
-    if (e.kind === "offOn") { if (!c.off) { c.off = true; c.offSegs.push({ from: e.t, to: null, how: "voice command" }); c.transcript.push({ t: e.t, who: "marker", text: "Off the record. Audio and frames are not stored." }); } continue; }
-    if (e.kind === "offOff") { if (c.off) { c.off = false; c.offSegs[c.offSegs.length - 1] = { ...c.offSegs[c.offSegs.length - 1], to: e.t }; c.transcript.push({ t: e.t, who: "marker", text: "Back on the record." }); } continue; }
-    if (c.off) { c.suppressed++; continue; }
-    if (e.kind === "speech") { c.transcript.push({ t: e.t, who: "expert", quote: e.quote }); continue; }
-    if (e.kind === "pii") { c.redacted += e.n; c.events.push({ t: e.t, kind: "pii", text: e.text }); continue; }
-    if (e.kind === "end") {
-      c.events.push({ t: e.t, kind: "end", text: e.text });
-      c.done = true; c.running = false; c.agent = "done";
-      c.agentLine = `Thanks, ${EXPERT.first}. I have a few open questions for the debrief.`;
-      continue;
-    }
-    c.events.push({ t: e.t, kind: "screen", text: e.text, field: e.field, raw: e.event });
-    (e.cands || []).forEach((k) => {
-      if (k.drop) c.dropped.push({ t: e.t, q: k.q, why: k.drop });
-      else if (k.defer) c.deferred.push({ t: e.t, q: k.q, why: k.why, gap: k.defer });
-      else c.queue.push({ ...k, eventT: e.t, eventText: e.text, alts: e.cands.filter((x) => x !== k) });
-    });
-  }
-
-  if (c.pending && t >= c.pending.at) {
-    c.transcript.push({ t: c.pending.at, who: "expert", quote: c.pending.quote });
-    c.asked = c.asked.map((a) => (a.id === c.pending.quote ? { ...a, answeredAt: c.pending.at } : a));
-    c.pending = null;
-  }
-
-  const sig = signalsAt(c, t);
+// Asks the shared Question Governor for a slot and updates the agent state. Used by both the recorded
+// session and live capture; only the signals differ.
+function governQueue(c, t, sig, live = false) {
   if (c.done) { /* keep */ }
   else if (c.off) c.agent = "off";
   else if (t < c.askingUntil) c.agent = "asking";
@@ -637,13 +655,52 @@ function stepCap(prev, dt) {
       c.asked.push({ id: k.id, step: k.step, q: k.q, type: k.type, t, eventT: k.eventT, eventText: k.eventText, quiet: sig.quiet, voiceSilenceFor: sig.voiceSilenceFor, interactionIdleFor: sig.interactionIdleFor, alts: k.alts, governorScore: decision.score, trigger: k.trigger });
       c.transcript.push({ t, who: "agent", text: k.q });
       c.agent = "asking"; c.agentLine = k.q; c.askingUntil = t + 2.5;
-      c.dyn.push({ from: t + 2.5, to: t + 8 });
-      c.pending = { at: t + 8, quote: k.id };
+      if (!live) {
+        // The recorded session simulates the expert answering; live capture hears the real answer instead.
+        c.dyn.push({ from: t + 2.5, to: t + 8 });
+        c.pending = { at: t + 8, quote: k.id };
+      }
     } else if (["expert_speaking", "expert_active", "document_scrolling"].includes(decision.reason)) {
       c.agent = "holding";
       c.holdReason = decision.reason === "expert_speaking" ? "talking" : decision.reason === "document_scrolling" ? "reading" : "typing";
     } else c.agent = "waiting";
   } else c.agent = "listening";
+}
+
+function stepCap(prev, dt) {
+  if (prev.done) return prev;
+  const c = { ...prev, events: [...prev.events], transcript: [...prev.transcript], asked: [...prev.asked],
+    queue: [...prev.queue], deferred: [...prev.deferred], dropped: [...prev.dropped], dyn: [...prev.dyn], offSegs: [...prev.offSegs] };
+  const t = Math.min(END_T, prev.t + dt);
+
+  while (c.ei < SCRIPT.length && SCRIPT[c.ei].t <= t) {
+    const e = SCRIPT[c.ei++];
+    if (e.kind === "offOn") { if (!c.off) { c.off = true; c.offSegs.push({ from: e.t, to: null, how: "voice command" }); c.transcript.push({ t: e.t, who: "marker", text: "Off the record. Audio and frames are not stored." }); } continue; }
+    if (e.kind === "offOff") { if (c.off) { c.off = false; c.offSegs[c.offSegs.length - 1] = { ...c.offSegs[c.offSegs.length - 1], to: e.t }; c.transcript.push({ t: e.t, who: "marker", text: "Back on the record." }); } continue; }
+    if (c.off) { c.suppressed++; continue; }
+    if (e.kind === "speech") { c.transcript.push({ t: e.t, who: "expert", quote: e.quote }); continue; }
+    if (e.kind === "pii") { c.redacted += e.n; c.events.push({ t: e.t, kind: "pii", text: e.text }); continue; }
+    if (e.kind === "end") {
+      c.events.push({ t: e.t, kind: "end", text: e.text });
+      c.done = true; c.running = false; c.agent = "done";
+      c.agentLine = `Thanks, ${EXPERT.first}. I have a few open questions for the debrief.`;
+      continue;
+    }
+    c.events.push({ t: e.t, kind: "screen", text: e.text, field: e.field, raw: e.event });
+    (e.cands || []).forEach((k) => {
+      if (k.drop) c.dropped.push({ t: e.t, q: k.q, why: k.drop });
+      else if (k.defer) c.deferred.push({ t: e.t, q: k.q, why: k.why, gap: k.defer });
+      else c.queue.push({ ...k, eventT: e.t, eventText: e.text, alts: e.cands.filter((x) => x !== k) });
+    });
+  }
+
+  if (c.pending && t >= c.pending.at) {
+    c.transcript.push({ t: c.pending.at, who: "expert", quote: c.pending.quote });
+    c.asked = c.asked.map((a) => (a.id === c.pending.quote ? { ...a, answeredAt: c.pending.at } : a));
+    c.pending = null;
+  }
+
+  governQueue(c, t, signalsAt(c, t));
 
   c.t = t;
   return c;
@@ -653,6 +710,48 @@ function runToEnd(cap) {
   let c = { ...cap, running: false };
   let guard = 0;
   while (!c.done && guard++ < 5000) c = stepCap(c, 0.5);
+  return c;
+}
+
+/* Live capture: the same Governor, fed by the microphone level, screen change and redacted vision
+   events instead of the recorded script. Nothing here is simulated. */
+const LIVE_QUEUE_MAX_AGE_S = 90;
+const LIVE_EVENTS_MAX = 490; // /api/apprentice/state accepts at most 500 events
+
+function liveStep(prev, now, snap) {
+  if (prev.done || !prev.live?.startedAt) return prev;
+  const c = { ...prev, asked: [...prev.asked], transcript: [...prev.transcript],
+    queue: prev.queue.filter((item) => now - item.eventT <= LIVE_QUEUE_MAX_AGE_S) };
+  const agentSpeaking = now < c.askingUntil;
+  const sig = {
+    typing: false, reading: snap.docScrolling, speaking: snap.speaking, agent: agentSpeaking,
+    moving: false, screenActive: snap.screenActive,
+    voiceSilenceFor: snap.voiceSilenceFor, interactionIdleFor: snap.interactionIdleFor,
+    quiet: Math.min(snap.voiceSilenceFor, snap.interactionIdleFor),
+    active: snap.speaking || snap.docScrolling || agentSpeaking,
+  };
+  c.t = now;
+  c.liveSig = sig;
+  governQueue(c, now, sig, true);
+  return c;
+}
+
+function ingestVisionEvents(prev, events) {
+  if (!events.length || prev.done) return prev;
+  const c = { ...prev, events: [...prev.events], queue: [...prev.queue] };
+  const askedTexts = new Set(c.asked.map((a) => a.q));
+  for (const ev of events) {
+    if (c.off) { c.suppressed++; continue; }
+    // Local "screen changed" notes are shown but never become Work Map evidence.
+    c.events.push({ t: ev.t, kind: "screen", text: ev.local ? ev.object : describeLiveEvent(ev), field: ev.local ? null : liveEventField(ev), raw: ev.local ? undefined : ev, live: true });
+    if (ev.local) continue;
+    for (const cand of liveCandidatesFromEvent(ev, askedTexts)) {
+      // The Governor's "recent trigger" window runs from when the event was detected, not from the frame time,
+      // because vision takes seconds to answer. The frame time stays on the event as evidence.
+      if (!c.queue.some((q) => q.id === cand.id)) c.queue.push({ ...cand, eventT: Math.max(cand.eventT, c.t), alts: [] });
+    }
+  }
+  c.events = c.events.slice(-LIVE_EVENTS_MAX);
   return c;
 }
 
@@ -667,42 +766,31 @@ function toggleOff(c, how = "button") {
 }
 
 /* ======================== screen at time t ============================= */
-const VDR_ROWS = [
-  ["3.1 Acme MSA Amendment 2.pdf", "3 Customer contracts", "14 Mar 2025", 20250314],
-  ["6.1 Adjusted EBITDA bridge (mgmt).xlsx", "6 Financials", "02 Mar 2025", 20250302],
-  ["7.3 Capex history.xlsx", "7 Operations", "28 Feb 2025", 20250228],
-  ["5.2 Relocation invoices 2021–2023.xlsx", "5 Accounting", "20 Feb 2025", 20250220],
-  ["3.3 Customer 3 Add-On.pdf", "3 Customer contracts", "05 Jan 2025", 20250105],
-  ["3.1 Acme MSA.pdf", "3 Customer contracts", "11 Jan 2023", 20230111],
-];
+const VDR_ROWS = ATLAS_FILES.map((file) => [file.name, file.folder, file.dateLabel, file.sort]);
 
 // What was on Sabine's screen in the canonical seeded session.
 function screenAt(t) {
   if (t < 8) return { view: "index", sorted: true };
   if (t < 40) return { view: "work", label: "Adjusted EBITDA bridge",
-    doc: { name: "6.1 Adjusted EBITDA bridge (management).xlsx", lines: [["Management Adjusted EBITDA"], ["One-time relocation: +$4.0M", true], ["Legal fees: one-time"], ["Draft — management"]], person: "Seller finance team" },
+    doc: fileById("a-bridge"), sheet: "Bridge",
     rows: [
       { key: "addback", label: "Add-back: relocation", v: "$4.0M", sub: "From management's bridge" },
-      { key: "ebitda", label: "Adjusted EBITDA", v: "$35.2M", calc: true },
+      { key: "ebitda", label: "Adjusted EBITDA", v: "$23.85M", calc: true },
     ] };
   if (t < 118) return { view: "work", label: "Top-20 contracts",
-    doc: t < 64
-      ? { name: "3.1 Acme MSA.pdf", lines: [["Order Form #1"], ["Annual subscription fee: $80,000", true]], person: "Acme signatory" }
-      : { name: "3.1 Acme MSA Amendment 2.pdf", lines: [["This Amendment supersedes and replaces Order Form #1.", true], ["Annual subscription fee: $110,000"]], person: "Acme signatory" },
+    doc: t < 64 ? fileById("a-msa") : fileById("a-amd"),
     rows: [
       { key: "arr", label: "ARR: Acme", v: t >= 95.4 ? "$110,000" : t >= 88.2 ? "$190,000" : "–", sub: t >= 95.4 ? "Amendment 2 replaces Order Form #1" : "Awaiting validation" },
       { key: "arrtop", label: "Top-20 customer ARR", v: t >= 95.4 ? "$13.55M" : "$13.63M", calc: true },
     ] };
   if (t < 160) return { view: "work", label: "Management add-backs",
-    doc: t < 150.3
-      ? { name: "6.1 Management Add-Backs.xlsx", lines: [["Relocation, one-time: $4.0M", true], ["Prepared by management"]], person: "Seller finance team" }
-      : { name: "5.2 Relocation invoices 2021–2023.xlsx", lines: [["2021 relocation expense"], ["2022 relocation expense"], ["2023 relocation expense", true]], person: "Seller finance team" },
+    doc: t < 150.3 ? fileById("a-addbacks") : fileById("a-reloc"),
     rows: [
       { key: "addback", label: "Relocation add-back", v: "$4.0M", sub: t >= 150.3 ? "Flagged for QoE review" : "Management case" },
       { key: "qoe", label: "QoE status", v: t >= 150.3 ? "Flagged" : "–" },
     ] };
   return { view: "work", label: "LBO assumptions",
-    doc: { name: "7.3 Capex history.xlsx", lines: [["2021: 4.0% of revenue"], ["2022: 4.2%"], ["2023: 4.1%"], ["3-year average: 4.1%", true], ["Management forecast: 1.8%"]], person: "Seller finance team" },
+    doc: fileById("a-capex"),
     rows: [
       { key: "capex", label: "Maintenance capex, % of revenue", v: t >= 199.6 ? "4.1%" : "1.8%", sub: t >= 199.6 ? "Historical average; QoE escalation required" : "Management forecast" },
       { key: "qoe", label: "Commit status", v: t >= 205.6 ? "Held for review" : "Not saved" },
@@ -836,7 +924,7 @@ function Screen({ t, off = false, compact = false, highlight, redact }) {
   const r = redact || { PERSON: true };
   const rows = s.view === "index" ? [...VDR_ROWS].sort((a, b) => (s.sorted ? b[3] - a[3] : a[1].localeCompare(b[1]))) : [];
   return (
-    <div className={"scr" + (compact ? " compact" : "")} role="img" aria-label={`${EXPERT.first}'s screen at ${fmt(t)}${changed ? ", changed: " + changed : ""}`}>
+    <div className={"scr" + (compact ? " compact" : "")} role="group" aria-label={`${EXPERT.first}'s screen at ${fmt(t)}${changed ? ", changed: " + changed : ""}`}>
       <div className="scr-bar"><span>{DEAL.code} data room</span><span>LBO model v14.xlsx</span></div>
       {s.view === "index" ? (
         <div className="scr-body">
@@ -850,9 +938,7 @@ function Screen({ t, off = false, compact = false, highlight, redact }) {
         <div className="wb">
           <div className={"wb-doc" + (changed === "doc" ? " changed" : "")}>
             <div className="wb-h"><span>Data room</span>{changed === "doc" && <span className="chg-tag">Opened</span>}</div>
-            <div className="doc-name">{s.doc.name}</div>
-            {s.doc.lines.map(([l, hl], i) => <div key={i} className={"doc-line" + (hl ? " hl" : "")}>{l}</div>)}
-            {!compact && <div className="doc-line" style={{ marginTop: 8 }}>Signed by: {r.PERSON ? <span className="redact">Name redacted</span> : s.doc.person}</div>}
+            <DocFace key={s.doc.id + (s.sheet || "")} file={s.doc} initialSheet={s.sheet} redactPerson={!!r.PERSON} />
           </div>
           <div className="wb-model">
             <div className="wb-h"><span>Model inputs: {s.label}</span></div>
@@ -988,7 +1074,7 @@ function AppearanceMenu() {
 /* Command bar: WAI-ARIA combobox. Arrows move the highlight; Home/End move the
    text cursor until the user has started arrowing; no stray tab stops. */
 const PAGES = [
-  ["overview", "Overview"], ["capture", "Capture: live session"], ["debrief", "Debrief"], ["map", "Work Map"],
+  ["landing", "Home"], ["overview", "Overview"], ["files", "Source files"], ["capture", "Capture: live session"], ["debrief", "Debrief"], ["map", "Work Map"],
   ["teach", `Coach ${TRAINEE.first}`], ["results", "Results"], ["export", "Agent export"], ["trust", "Trust and privacy"],
 ];
 function CommandBar({ onDone }) {
@@ -1032,7 +1118,7 @@ function CommandBar({ onDone }) {
   );
 }
 
-/* Browser speech is a stand-in. Swap for the ElevenAgents session (Expressive Mode). */
+/* Browser speech remains the no-key fallback for scripted questions. */
 function speakText(on, text) {
   try {
     if (!on || !window.speechSynthesis || !text) return;
@@ -1123,8 +1209,8 @@ function OverviewPage() {
       how: `${TRAINEE.first} works an unseen deal; only verified rules can block her.`,
       ev: `${S.handled} of ${S.casesTotal} stages, ${S.caught} inputs caught` },
     { name: "Trust", page: "trust", ok: S.offSegs >= 1,
-      how: "Off the record by voice or button; names, SSNs and salaries redacted in the browser.",
-      ev: `${S.offSegs} off-record ${S.offSegs === 1 ? "segment" : "segments"}, ${S.redacted} items redacted` },
+      how: "Off the record by voice or button; transcript redaction is server-side when Presidio is configured.",
+      ev: `${S.offSegs} off-record ${S.offSegs === 1 ? "segment" : "segments"}, ${S.redacted} synthetic items redacted` },
   ];
   const shown = S.awaiting.slice(0, 3);
   return (
@@ -1185,11 +1271,12 @@ function OverviewPage() {
 
 /* ============================= CAPTURE ================================ */
 function CapturePage() {
-  const { cap, setCap, settings, go, voice, sel, announce } = useApp();
+  const { cap, setCap, settings, go, voice, sel, announce, getApprenticeSessionId } = useApp();
   const [tab, setTab] = useState("questions");
   const [stream, setStream] = useState(null);
   const [shareMsg, setShareMsg] = useState(null);
   const [open, setOpen] = useState(null);
+  const [liveVoiceConnected, setLiveVoiceConnected] = useState(false);
   const videoRef = useRef(null);
   const capRef = useRef(cap);
 
@@ -1206,28 +1293,81 @@ function CapturePage() {
   const asked = cap.asked;
   const said = useRef(asked.length);
   useEffect(() => {
-    if (asked.length > said.current) speakText(voice, asked[asked.length - 1].q);
+    if (asked.length > said.current && !liveVoiceConnected) speakText(voice, asked[asked.length - 1].q);
     said.current = asked.length;
-  }, [asked, voice]);
+  }, [asked, liveVoiceConnected, voice]);
   useEffect(() => { if (cap.done) announce("Capture finished. The debrief is ready."); }, [cap.done]); // eslint-disable-line
 
   useEffect(() => { if (videoRef.current && stream) videoRef.current.srcObject = stream; }, [stream]);
-  useFrameSampler(stream, videoRef, capRef, setCap);
 
-  async function share() {
-    setShareMsg(null);
-    try {
-      const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 2 }, audio: false });
-      s.getVideoTracks()[0].onended = () => setStream(null);
-      setStream(s);
-      setShareMsg({ tone: "agent", text: "Sharing locally. Changed frames stay in this browser until redaction and the server-side vision path are connected." });
-    } catch {
-      setShareMsg({ tone: "critical", text: "Screen sharing is blocked in this preview. Play the demo session here, or run the app on your own domain to share a real screen." });
-    }
+  // ---- live capture: real screen, real microphone level, optional redacted vision ----
+  const sessionId = getApprenticeSessionId();
+  const visionOn = process.env.NEXT_PUBLIC_ENABLE_VISION === "true";
+  const trackerRef = useRef(new LiveSignalTracker());
+  const liveNow = () => ((performance.now() - (capRef.current.live?.startedAt ?? performance.now())) / 1000);
+  const voiceActivity = useVoiceActivity({
+    onSpeech: () => { if (capRef.current.live?.startedAt && !capRef.current.off) trackerRef.current.noteVoice(liveNow()); },
+  });
+  const liveRunning = !!cap.live?.startedAt && !cap.done;
+
+  useEffect(() => {
+    if (!liveRunning) return;
+    const id = setInterval(() => {
+      const now = liveNow();
+      setCap((c) => liveStep(c, now, trackerRef.current.snapshot(now)));
+    }, 500);
+    return () => clearInterval(id);
+  }, [liveRunning]); // eslint-disable-line
+
+  useLiveSampler({
+    stream, videoRef, capRef, trackerRef, sessionId, visionOn, active: liveRunning,
+    onEvents: (events) => setCap((c) => ingestVisionEvents(c, events)),
+    onVision: (patch) => setCap((c) => (c.live ? { ...c, vision: { ...c.vision, ...patch(c.vision) } } : c)),
+  });
+
+  function releaseMedia() {
+    stream?.getTracks().forEach((tr) => tr.stop());
+    setStream(null);
+    voiceActivity.stop();
   }
-  function stopShare() { stream?.getTracks().forEach((tr) => tr.stop()); setStream(null); setShareMsg(null); }
+  async function startLive() {
+    setShareMsg(null);
+    let display;
+    try {
+      display = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 2 }, audio: false });
+    } catch {
+      setShareMsg({ tone: "critical", text: "Screen sharing was refused or is unavailable here. Use the recorded session, or open the app in Chrome on your own domain." });
+      return;
+    }
+    // Without the microphone the Governor could not tell when the expert is talking, so fail closed.
+    const micOk = await voiceActivity.start();
+    if (!micOk) {
+      display.getTracks().forEach((tr) => tr.stop());
+      setShareMsg({ tone: "critical", text: "Live capture needs the microphone level to know when the expert is talking. Allow microphone access, or use the recorded session." });
+      return;
+    }
+    display.getVideoTracks()[0].onended = () => { setStream(null); voiceActivity.stop(); };
+    trackerRef.current = new LiveSignalTracker();
+    setStream(display);
+    setTab("events");
+    setCap({ ...initCap(), live: { startedAt: performance.now() },
+      vision: { enabled: visionOn, calls: 0, events: 0, errors: 0, totalLatencyMs: 0, lastLatencyMs: null, redactions: 0, provider: null, disabled: null } });
+    setShareMsg({ tone: "agent", text: visionOn
+      ? "Live capture is on. Frames go to the server-side redactor first; only the redacted image reaches the vision model, and nothing is stored."
+      : "Live capture is on without vision: screen change and microphone level are measured locally, but no questions can be generated until vision is configured." });
+  }
+  function endLive() {
+    releaseMedia();
+    setCap((c) => ({ ...c, done: true, running: false, agent: "done", agentLine: `Thanks, ${EXPERT.first}. I have a few open questions for the debrief.` }));
+  }
+  function switchToRecorded() {
+    releaseMedia();
+    setShareMsg(null);
+    setCap(initCap());
+  }
 
-  const sig = signalsAt(cap, cap.t);
+  const sig = cap.live && cap.liveSig ? cap.liveSig : signalsAt(cap, cap.t);
+  const spanT = cap.live ? Math.max(END_T, cap.t) : END_T;
   const pause = sig.voiceSilenceFor >= QUESTION_GOVERNOR_POLICY.minVoiceSilence &&
     sig.interactionIdleFor >= QUESTION_GOVERNOR_POLICY.minInteractionIdle &&
     !sig.reading && !sig.agent && !cap.off && !cap.done && cap.t > 0;
@@ -1242,6 +1382,14 @@ function CapturePage() {
     holding: [Hand, `Holding a question while ${EXPERT.first} is ${cap.holdReason}`], off: [EyeOff, "Off the record"], done: [Check, "Task finished"],
   }[cap.agent];
   const StateIcon = state[0];
+  const latestScreenEvent = [...cap.events].reverse().find((event) => event.kind === "screen");
+  const liveScreenState = {
+    state_summary: latestScreenEvent?.text || (stream ? "A live screen is shared; only local frame changes are available." : "The recorded synthetic session is ready."),
+    recent_events: cap.events.slice(-8).map((event) => event.raw || { t: event.t, type: event.kind, object: event.text }),
+    current_doc: latestScreenEvent?.raw?.object || null,
+    elapsed_s: Number(cap.t.toFixed(1)),
+  };
+  const liveSlot = cap.agent === "asking" ? (cap.asked.at(-1) || null) : null;
 
   return (
     <>
@@ -1254,50 +1402,63 @@ function CapturePage() {
         <div className="stack">
           <Card title={`${EXPERT.first}'s screen`} extra={
             <div className="row">
-              {stream ? <button className="btn compact" onClick={stopShare}><Square size={13} aria-hidden /> Stop sharing</button>
-                : <button className="btn compact" onClick={share}><MonitorUp size={13} aria-hidden /> Share my screen</button>}
+              {liveRunning ? <button className="btn compact" onClick={endLive}><Square size={13} aria-hidden /> End live capture</button>
+                : <button className="btn compact" disabled={cap.done} onClick={() => void startLive()}><MonitorUp size={13} aria-hidden /> Start live capture</button>}
               <button className={"btn compact"} aria-pressed={cap.off} disabled={cap.done || cap.t === 0} onClick={() => setCap((c) => toggleOff(c))}>
                 <EyeOff size={13} aria-hidden /> {cap.off ? "Go back on the record" : "Go off the record"}</button>
             </div>}>
             <div className="stack">
               <div className="row">
-                <button className="btn" disabled={cap.done} onClick={() => setCap((c) => ({ ...c, running: !c.running }))}>
+                <button className="btn" disabled={cap.done || !!cap.live} onClick={() => setCap((c) => ({ ...c, running: !c.running }))}>
                   {cap.running ? <><Pause size={14} aria-hidden /> Pause demo</> : <><Play size={14} aria-hidden /> {cap.t > 0 ? "Resume demo" : "Play demo session"}</>}</button>
                 <div className="seg" role="radiogroup" aria-label="Playback speed">
                   {[4, 8, 16].map((s) => <button key={s} role="radio" aria-checked={cap.speed === s} onClick={() => setCap((c) => ({ ...c, speed: s }))}>{s}×</button>)}
                 </div>
-                <button className="btn" disabled={cap.done} onClick={() => setCap((c) => runToEnd(c))}><FastForward size={14} aria-hidden /> Skip to end</button>
-                <button className="btn" onClick={() => setCap(initCap())}><RotateCcw size={14} aria-hidden /> Restart</button>
+                <button className="btn" disabled={cap.done || !!cap.live} onClick={() => setCap((c) => runToEnd(c))}><FastForward size={14} aria-hidden /> Skip to end</button>
+                <button className="btn" onClick={switchToRecorded}><RotateCcw size={14} aria-hidden /> {cap.live ? "Use the recorded session" : "Restart"}</button>
               </div>
               {stream ? <video ref={videoRef} autoPlay muted playsInline style={{ width: "100%", borderRadius: 8, border: "1px solid var(--line)" }} />
                 : <Screen t={cap.t} off={cap.off} redact={settings.redact} />}
               <div>
                 <div className="row"><span className="t-sec">Session time</span><TimeLink t={cap.t} /><span className="spacer" />
-                  <span className="t-sec">{fmt(END_T)} total</span></div>
+                  <span className="t-sec">{cap.live ? "live capture" : `${fmt(END_T)} total`}</span></div>
                 <div className="scrub" aria-hidden>
-                  <div className="scrub-track" /><div className="scrub-fill" style={{ width: `${(cap.t / END_T) * 100}%` }} />
-                  {cap.offSegs.map((s, i) => <div key={i} className="scrub-off" style={{ left: `${(s.from / END_T) * 100}%`, width: `${(((s.to ?? cap.t) - s.from) / END_T) * 100}%` }} />)}
-                  {cap.asked.map((a) => <div key={a.id} className={"scrub-q" + (a.type === "guardrail" ? " g" : "")} style={{ left: `${(a.t / END_T) * 100}%` }} />)}
+                  <div className="scrub-track" /><div className="scrub-fill" style={{ width: `${Math.min(100, (cap.t / spanT) * 100)}%` }} />
+                  {cap.offSegs.map((s, i) => <div key={i} className="scrub-off" style={{ left: `${(s.from / spanT) * 100}%`, width: `${(((s.to ?? cap.t) - s.from) / spanT) * 100}%` }} />)}
+                  {cap.asked.map((a) => <div key={a.id} className={"scrub-q" + (a.type === "guardrail" ? " g" : "")} style={{ left: `${(a.t / spanT) * 100}%` }} />)}
                 </div>
               </div>
               <div className="signals" aria-label="Activity signals">
-                <div className={"signal" + (sig.typing ? " on" : "")}><span className="row strong"><Keyboard size={13} aria-hidden /> Typing</span><span className="t-sec">{sig.typing ? "Active, so the apprentice waits" : "Keyboard idle"}</span></div>
+                {cap.live
+                  ? <div className={"signal" + (sig.screenActive ? " on" : "")}><span className="row strong"><MonitorUp size={13} aria-hidden /> Screen</span><span className="t-sec">{sig.screenActive ? "Changing, so the apprentice waits" : "Screen still"}</span></div>
+                  : <div className={"signal" + (sig.typing ? " on" : "")}><span className="row strong"><Keyboard size={13} aria-hidden /> Typing</span><span className="t-sec">{sig.typing ? "Active, so the apprentice waits" : "Keyboard idle"}</span></div>}
                 <div className={"signal" + (sig.reading ? " on" : "")}><span className="row strong"><BookOpen size={13} aria-hidden /> Reading</span><span className="t-sec">{sig.reading ? "Scrolling or reading" : "No reading detected"}</span></div>
                 <div className={"signal" + (sig.speaking || sig.agent ? " on" : "")}><span className="row strong"><Mic size={13} aria-hidden /> Talking</span><span className="t-sec">{sig.agent ? "Apprentice speaking" : sig.speaking ? `${EXPERT.first} is talking` : "Silence"}</span></div>
                 <div className={"signal" + (pause ? " pause" : "")}><span className="strong">{pause ? "Natural pause" : "Quiet time"}</span>
                   <span className="t-meta">voice {sig.voiceSilenceFor.toFixed(1)}/{QUESTION_GOVERNOR_POLICY.minVoiceSilence} s · input {sig.interactionIdleFor.toFixed(1)}/{QUESTION_GOVERNOR_POLICY.minInteractionIdle} s</span>
                   <div className="meter-bar"><i style={{ width: `${gateProgress * 100}%` }} /><s style={{ left: "100%" }} /></div></div>
               </div>
-              <p className="t-sec">This no-key demo feeds deterministic keyboard, document-scroll and voice-silence signals into the production Question Governor. Live Scribe and vision signals can replace the seeded stream without changing the gate.</p>
+              {cap.live ? <LiveStatus cap={cap} voice={voiceActivity} visionOn={visionOn} />
+                : <p className="t-sec">The recorded session feeds seeded keyboard, document-scroll and voice-silence signals into the production Question Governor. Start live capture to feed it your real microphone level, screen changes and redacted vision events instead; the gate is the same.</p>}
             </div>
           </Card>
         </div>
 
         <div className="stack">
+          <LiveInterviewer
+            sessionId={getApprenticeSessionId()}
+            elapsedSeconds={cap.t}
+            questionCount={cap.asked.length}
+            offRecord={cap.off}
+            slot={liveSlot}
+            screenState={liveScreenState}
+            onConnectionChange={setLiveVoiceConnected}
+            onOffRecordChange={(active) => setCap((current) => current.off === active ? current : toggleOff(current, "voice command"))}
+          />
           <section className={"card agent" + (cap.off ? " hatch" : "")} aria-live="polite" aria-label="Apprentice">
             <div className="agent-state" style={cap.off ? { color: "var(--text)" } : null}><StateIcon size={16} aria-hidden /> {state[1]}</div>
             {cap.agent === "asking" && <p className="agent-line">“{cap.agentLine}”</p>}
-            {cap.agent === "idle" && <p className="t-sec" style={{ marginTop: 8 }}>Play the demo session, or share your own screen.</p>}
+            {cap.agent === "idle" && <p className="t-sec" style={{ marginTop: 8 }}>Play the recorded session, or start live capture.</p>}
             {cap.agent === "done" && <p className="agent-line">{cap.agentLine}</p>}
             {cap.agent === "off" && <p className="t-sec" style={{ marginTop: 8 }}>Nothing is heard, seen or stored until {EXPERT.first} goes back on the record. Only the time span is kept.</p>}
             {(cap.agent === "holding" || cap.agent === "waiting") && cap.queue[0] && <p className="t-sec" style={{ marginTop: 8 }}>Held: “{cap.queue[0].q}”</p>}
@@ -1366,54 +1527,104 @@ function mergeOff(cap) {
   return [...cap.events, ...segs].sort((a, b) => a.t - b.t);
 }
 
-/* Live preview: sample locally every 2 s and record only that the screen changed.
-   Raw frames must not leave the browser until OCR/PII masking and the server-side
-   vision route are ready. This deliberately replaces the prototype's direct
-   browser-to-model request, which would bypass the privacy boundary. */
-function useFrameSampler(stream, videoRef, capRef, setCap) {
+function LiveStatus({ cap, voice, visionOn }) {
+  const v = cap.vision || {};
+  const avg = v.calls - v.errors > 0 ? Math.round(v.totalLatencyMs / (v.calls - v.errors)) : null;
+  return (
+    <div className="inset stack tight" aria-label="Live capture status">
+      <div className="row"><strong>Live capture</strong><span className="spacer" />
+        <span className="t-cap">{cap.done ? "ended" : cap.live.startedAt ? "running" : "interrupted by a reload; start a new live capture"}</span></div>
+      <div className="row t-sec">
+        <Mic size={13} aria-hidden /> Microphone level (measured here, never recorded or sent)
+        <div className="meter-bar" style={{ flex: 1 }}><i style={{ width: `${Math.round(voice.level * 100)}%` }} /></div>
+      </div>
+      {voice.error && <p className="t-sec" style={{ color: "var(--critical)" }}>{voice.error}</p>}
+      <p className="t-sec">
+        {!visionOn && "Vision is off (NEXT_PUBLIC_ENABLE_VISION is not true). No screen events and so no live questions."}
+        {visionOn && v.disabled && `Vision stopped: ${v.disabled}`}
+        {visionOn && !v.disabled && `Vision: ${v.calls} frames sent through the redactor, ${v.events} events, ${v.errors} errors${avg != null ? `, ${avg} ms average round trip` : ""}${v.provider ? `, redactor ${v.provider}` : ""}. Frames are not stored.${v.lastError ? ` Last error: ${v.lastError}` : ""}`}
+      </p>
+    </div>
+  );
+}
+
+/* Live sampling: every 2 s compare a tiny grayscale copy of the shared screen with the previous one.
+   A change feeds the Governor's interaction signal. With vision on, a readable frame is also sent to
+   /api/vision/extract, which redacts it server-side before the vision model sees it and stores nothing.
+   Nothing leaves the browser except through that route. */
+function useLiveSampler({ stream, videoRef, capRef, trackerRef, sessionId, visionOn, active, onEvents, onVision }) {
+  const cbRef = useRef({ onEvents, onVision });
+  useEffect(() => { cbRef.current = { onEvents, onVision }; });
   useEffect(() => {
-    if (!stream) return;
-    const started = Date.now();
-    let previous = null;
+    if (!stream || !active) return;
+    let previous = null; let inflight = false; let lastVisionAt = -Infinity; let disabled = false; let lastLocalAt = -Infinity;
     const canvas = document.createElement("canvas");
+    const out = document.createElement("canvas");
+    const nowS = () => (performance.now() - (capRef.current.live?.startedAt ?? performance.now())) / 1000;
     const id = setInterval(() => {
       const v = videoRef.current;
-      if (!v || !v.videoWidth || capRef.current.off) return;
-      canvas.width = 48;
-      canvas.height = 27;
+      if (!v || !v.videoWidth) return;
+      canvas.width = 48; canvas.height = 27;
       const context = canvas.getContext("2d", { willReadFrequently: true });
       if (!context) return;
       context.drawImage(v, 0, 0, canvas.width, canvas.height);
       const current = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let diff = 0;
       if (previous) {
         let delta = 0;
         for (let i = 0; i < current.length; i += 4) {
-          delta += Math.abs(current[i] - previous[i]);
-          delta += Math.abs(current[i + 1] - previous[i + 1]);
-          delta += Math.abs(current[i + 2] - previous[i + 2]);
+          delta += Math.abs(current[i] - previous[i]) + Math.abs(current[i + 1] - previous[i + 1]) + Math.abs(current[i + 2] - previous[i + 2]);
         }
-        const diff = delta / (canvas.width * canvas.height * 3 * 255);
-        if (diff >= 0.02) {
-          const t = (Date.now() - started) / 1000;
-          setCap((c) => ({
-            ...c,
-            events: [
-              ...c.events,
-              {
-                t,
-                kind: "screen",
-                text: "Screen changed in local privacy-safe preview; vision extraction is not connected.",
-                field: "other",
-                live: true,
-              },
-            ],
-          }));
-        }
+        diff = delta / (canvas.width * canvas.height * 3 * 255);
       }
       previous = new Uint8ClampedArray(current);
+      if (diff < LIVE_POLICY.screenChangeThreshold) return;
+      const now = nowS();
+      const off = capRef.current.off;
+      if (!off) trackerRef.current.noteScreenChange(now);
+      if (off) return;
+      if (!visionOn) {
+        if (now - lastLocalAt >= 10) {
+          lastLocalAt = now;
+          cbRef.current.onEvents([{ t: Number(now.toFixed(2)), type: "navigation", object: "Screen changed (vision is off; nothing was read)", confidence: 1, source: "app", local: true }]);
+        }
+        return;
+      }
+      if (inflight || disabled || now - lastVisionAt < LIVE_POLICY.visionMinIntervalS) return;
+      const ratio = v.videoHeight / v.videoWidth || 9 / 16;
+      out.width = 960; out.height = Math.max(1, Math.round(960 * ratio));
+      out.getContext("2d")?.drawImage(v, 0, 0, out.width, out.height);
+      const dataUrl = encodeReadableJpeg(out);
+      const recent = capRef.current.events.filter((e) => e.raw).slice(-3).map((e) => `${e.raw.type}:${e.raw.object}`).join("; ");
+      inflight = true; lastVisionAt = now;
+      const started = performance.now();
+      const t = Number(now.toFixed(2));
+      sessionFetch(sessionId, "/api/vision/extract", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId, frame_id: `live_${Math.round(now * 10)}`, t, data_url: dataUrl, previous_state: recent || undefined }),
+      }).then(async (res) => {
+        const latency = Math.round(performance.now() - started);
+        const body = await res.json().catch(() => ({}));
+        if (res.status === 503) {
+          disabled = true;
+          const why = `not configured${body.missing?.length ? " (" + body.missing.join(", ") + ")" : ""}`;
+          cbRef.current.onVision((p) => ({ calls: (p?.calls || 0) + 1, errors: (p?.errors || 0) + 1, disabled: why }));
+          return;
+        }
+        if (!res.ok) throw new Error(body.error || `status ${res.status}`);
+        cbRef.current.onVision((p) => ({
+          calls: (p?.calls || 0) + 1, events: (p?.events || 0) + (body.events?.length || 0),
+          totalLatencyMs: (p?.totalLatencyMs || 0) + latency, lastLatencyMs: latency,
+          redactions: (p?.redactions || 0) + (body.redaction?.redactions || 0), provider: body.redaction?.provider || p?.provider || null,
+        }));
+        // The frame may have been captured on the record and answered after the expert went off it.
+        if (!capRef.current.off && body.events?.length) cbRef.current.onEvents(body.events);
+      }).catch((err) => {
+        cbRef.current.onVision((p) => ({ calls: (p?.calls || 0) + 1, errors: (p?.errors || 0) + 1, lastError: String(err?.message || err).slice(0, 140) }));
+      }).finally(() => { inflight = false; });
     }, 2000);
     return () => clearInterval(id);
-  }, [stream]); // eslint-disable-line
+  }, [stream, active, visionOn, sessionId]); // eslint-disable-line
 }
 
 /* ============================= DEBRIEF ================================ */
@@ -1793,7 +2004,7 @@ function TeachPage() {
                       {docs.map((d) => <button key={d.id} aria-pressed={!!openDoc && openDoc.id === d.id} onClick={() => open(d.id)}>
                         <span>{d.name}</span>{form.opened.includes(d.id) && <span className="chg-tag" style={{ color: "var(--scr-text-2)" }}>Opened</span>}</button>)}
                     </div>
-                    {openDoc ? <><div className="doc-name">{openDoc.name}</div>{openDoc.lines.map(([l, hl], i) => <div key={i} className={"doc-line" + (hl ? " hl" : "")}>{l}</div>)}</>
+                    {openDoc ? <DocFace key={openDoc.id} file={openDoc} />
                       : <p style={{ color: "var(--scr-text-2)" }}>Open a file to read it.</p>}
                   </div>
                   <div className="wb-model">
@@ -1993,8 +2204,26 @@ const ENTITIES = [
   ["EMAIL_ADDRESS", "Email addresses"], ["PHONE_NUMBER", "Phone numbers"], ["US_BANK_NUMBER", "Bank account numbers"],
 ];
 
+function useSystemReadiness() {
+  const [readiness, setReadiness] = useState(null);
+  const [readinessError, setReadinessError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/system/readiness", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Readiness check failed");
+        return response.json();
+      })
+      .then((payload) => { if (active) setReadiness(payload); })
+      .catch(() => { if (active) setReadinessError(true); });
+    return () => { active = false; };
+  }, []);
+  return { readiness, readinessError };
+}
+
 function TrustPage() {
   const { cap, settings, setSettings, struck, setStruck, ruleSources, quotes, askReset } = useApp();
+  const { readiness, readinessError } = useSystemReadiness();
   const used = [...new Set(RULES.flatMap((r) => ruleSources(r.id)).concat(cap.asked.map((a) => a.id)))].filter((q) => quotes[q]);
   const setR = (k) => setSettings((s) => ({ ...s, redact: { ...s.redact, [k]: !s.redact[k] } }));
   const sample = "Census row 214: Maria Gonzalez, SSN 412-55-0193, base salary $142,000, maria.gonzalez@atlasfleet.com, (312) 555-0147.";
@@ -2008,7 +2237,23 @@ function TrustPage() {
   return (
     <>
       <PageHead title="Trust and privacy"
-        lede={`${EXPERT.first} decides what's kept. She can go off the record at any time, strike her own words afterwards, and personal data from the data room is redacted before a frame leaves the browser. Settings on this page apply immediately.`} />
+        lede={`${EXPERT.first} decides what's kept. She can go off the record at any time and strike her own words afterwards. Transcript redaction and frame handling have different readiness levels, shown below.`} />
+      <Card title="Runtime truth" extra={readiness && <Badge tone={readiness.sensitive_data_ready ? "verified" : "pending"}>{readiness.sensitive_data_ready ? "Sensitive data ready" : "Synthetic data only"}</Badge>}>
+        {readinessError && <p className="notice critical">The readiness endpoint could not be checked. Treat this run as synthetic-only.</p>}
+        {!readiness && !readinessError && <p className="empty">Checking configured services…</p>}
+        {readiness && <div className="stack tight">
+          <p className="t-sec">The workflow logic is operational with fictional data. Sensitive-data use remains blocked until every production boundary is implemented and verified.</p>
+          <div className="grid g2">
+            {Object.entries(readiness.capabilities).map(([name, capability]) => (
+              <div className="inset" key={name}>
+                <div className="row"><strong>{name.replaceAll("_", " ")}</strong><span className="spacer" /><Badge tone={capability.state === "live" ? "verified" : capability.state === "demo" ? "pending" : "critical"}>{capability.state}</Badge></div>
+                <p className="t-sec" style={{ marginTop: 4 }}>{capability.detail}</p>
+              </div>
+            ))}
+          </div>
+          {readiness.blockers.length > 0 && <details><summary className="link">Why sensitive data is blocked</summary><ul>{readiness.blockers.map((blocker) => <li className="t-sec" key={blocker}>{blocker}</li>)}</ul></details>}
+        </div>}
+      </Card>
       <div className="grid g2" style={{ alignItems: "start" }}>
         <div className="stack">
           <Card title="Off the record">
@@ -2030,7 +2275,7 @@ function TrustPage() {
         </div>
         <div className="stack">
           <Card title="Personal data on screen">
-            <p className="t-sec" style={{ marginBottom: 4 }}>Detected with Microsoft Presidio, plus a custom recognizer for compensation, on every frame and transcript line, before anything goes to a model.</p>
+            <p className="t-sec" style={{ marginBottom: 4 }}>This control previews the intended masking policy. The hosted Presidio boundary currently applies to transcript text only. Server-side frame redaction and vision extraction are not implemented, so Apprentice screen-share frames stay local.</p>
             {ENTITIES.map(([k, l]) => (
               <div className="setting" key={k}><span id={"lbl-" + k}>{l}</span>
                 <button className="switch" role="switch" aria-checked={!!R[k]} aria-labelledby={"lbl-" + k} onClick={() => setR(k)} /></div>))}
@@ -2059,10 +2304,736 @@ function TrustPage() {
             <div className="setting"><label htmlFor="ret">Delete recordings after</label>
               <select id="ret" className="input" value={settings.retention} onChange={(e) => setSettings((s) => ({ ...s, retention: e.target.value }))}>
                 <option value="0">The Work Map is verified</option><option value="30">30 days</option><option value="90">90 days</option></select></div>
-            <p className="t-sec" style={{ margin: "8px 0 12px" }}>The Work Map keeps events, short screen moments and verified quotes. Full video is never stored, and no file leaves the data room permissions of this deal.</p>
+            <p className="t-sec" style={{ margin: "8px 0 12px" }}>The Apprentice page does not upload full video or shared-screen frames. The separate Deal Desk can retain sampled frames only after explicit opt-in. Data-room permission integration is not implemented.</p>
             <button className="btn" onClick={() => askReset("delete")}>Delete this session</button>
           </Card>
         </div>
+      </div>
+    </>
+  );
+}
+
+/* ====================================================================
+   LANDING PAGE STYLESHEET, built from DESIGN.md (v2). Scoped to .lp2 and
+   only loaded on the landing page, so the dashboard keeps its own system.
+==================================================================== */
+const LP_CSS = `
+.lp2{
+  --page:#FDFCFC; --white:#FFFFFF; --cream:#F5F3F1;
+  --g25:#FBFAF9; --g50:#FAF8F8; --g100:#F5F3F1; --g200:#EBE8E4; --g300:#D7D2CC; --g400:#A59F97;
+  --g500:#777169; --g600:#59544F; --g700:#44403B; --g800:#292524; --g900:#1C1917; --n100:#E5E5E5;
+  --frame:rgba(0,0,0,.05); --card-ring:rgba(0,0,0,.075); --icon-ring:rgba(0,0,0,.10);
+  --focus:#2B7FFF;
+  --code-keyword:#F41A2F; --code-ident:#0A59D2; --code-value:#052F70;
+  --shadow-pill:0 0 1px rgba(0,0,0,.4),0 1px 1px rgba(0,0,0,.04),0 2px 4px rgba(0,0,0,.04);
+  --shadow-bubble:0 0 0 .5px rgba(0,0,0,.08),0 1.677px 3.354px rgba(0,0,0,.04);
+  --ring-card:inset 0 0 0 .5px rgba(0,0,0,.075); --ring-icon:inset 0 0 0 .5px rgba(0,0,0,.10); --ring-demo:inset 0 0 0 .5px #EBE8E4;
+  --ease:cubic-bezier(.4,0,.2,1);
+  --container-max:81.5rem; --og:20px;
+  --px-d:1rem; --px-s:.5rem;
+  --py-xs:1rem; --py-sm:1.5rem; --py-d:5rem; --py-xl:7.5rem;
+  background:var(--page); color:#000; font-family:Inter,system-ui,sans-serif; -webkit-font-smoothing:antialiased;
+  min-height:100vh; overflow-x:hidden; overflow-x:clip; color-scheme:light;
+}
+@media (min-width:640px){ .lp2{--og:40px; --py-sm:2.5rem; --py-d:7.5rem; --py-xl:10rem} }
+@media (min-width:768px){ .lp2{--px-d:3rem; --px-s:1rem} }
+@media (min-width:1280px){ .lp2{--og:64px} }
+.lp2 *{box-sizing:border-box}
+:where(.lp2) :is(h1,h2,h3,h4,p,ul,ol,figure,dl,dd,blockquote){margin:0}
+:where(.lp2) :is(ul,ol){list-style:none;padding:0}
+:where(.lp2) button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
+.lp2 :focus-visible{outline:1.5px solid var(--focus);outline-offset:2px}
+.l-sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ---- type ---- */
+.l-display{font-family:var(--font-sans),Geist,'Inter Tight',Inter,system-ui,sans-serif;font-weight:300;text-wrap:balance}
+.t6{font-size:36px;line-height:42px;letter-spacing:-.02em}
+.t5{font-size:30px;line-height:36px}
+.t4{font-size:26px;line-height:32px}
+@media (min-width:640px){ .t6{font-size:48px;line-height:52px} .t5{font-size:36px;line-height:42px} .t4{font-size:32px;line-height:36px} }
+.tb{font-size:16px;line-height:24px;letter-spacing:.01em}
+.tsm{font-size:15px;line-height:22px;letter-spacing:.01em}
+.txs{font-size:14px;line-height:21px;letter-spacing:.01em}
+.txs-t{font-size:14px;line-height:18px;letter-spacing:.01em}
+.lp2 p{text-wrap:pretty}
+.mu{color:var(--g500)}
+.fw5{font-weight:500}
+
+/* ---- layout ---- */
+.l-container{width:calc(min(100%, var(--container-max)) - 2*var(--og));margin-inline:auto;position:relative}
+.l-framed{border-inline:1px solid var(--frame)}
+.l-rule{position:absolute;top:0;left:-100vw;right:-100vw;height:1px;background:var(--frame);pointer-events:none}
+.l-dot{position:absolute;z-index:20;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:9999px;pointer-events:none}
+.l-dot::before{content:"";width:2px;height:2px;border-radius:9999px;background:#000}
+.l-dot.tl{left:0;top:0;transform:translate(-50%,-50%)} .l-dot.tr{right:0;top:0;transform:translate(50%,-50%)}
+.l-dot.bl{left:0;bottom:0;transform:translate(-50%,50%)} .l-dot.br{right:0;bottom:0;transform:translate(50%,50%)}
+.px-d{padding-inline:var(--px-d)} .px-s{padding-inline:var(--px-s)}
+.pt-xl{padding-top:var(--py-xl)} .pt-d{padding-top:var(--py-d)} .pt-sm{padding-top:var(--py-sm)}
+.pb-sm{padding-bottom:var(--py-sm)} .pb-d{padding-bottom:var(--py-d)} .pb-xs{padding-bottom:var(--py-xs)}
+
+/* ---- title block: 12-col, 6/6 at lg ---- */
+.l-title{display:flex;flex-direction:column;position:relative}
+.l-title .head{order:1}
+.l-title .lead{order:2;margin-top:32px;max-width:42rem;display:flex;flex-direction:column}
+.l-title .cta{order:3;margin-top:32px;display:flex;flex-wrap:wrap;gap:8px}
+.l-eyebrow{font-size:15px;line-height:22px;letter-spacing:.01em;font-weight:500;color:var(--g500);margin-bottom:28px}
+@media (min-width:1024px){
+  .l-title{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:48px;grid-template-rows:auto 1fr}
+  .l-title .head{grid-column:1/span 6;grid-row:1}
+  .l-title .cta{grid-column:1/span 6;grid-row:2}
+  .l-title .lead{grid-column:7/span 6;grid-row:1/span 2;margin-top:0}
+  .l-title .right-btn{position:absolute;right:0;top:0;margin-top:0}
+}
+.l-title .right-btn{margin-top:32px}
+
+/* ---- buttons: all pills ---- */
+.l-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:9999px;white-space:nowrap;font-family:Inter,system-ui,sans-serif;font-weight:400;line-height:1;
+  transition:background-color .15s var(--ease),color .15s var(--ease),box-shadow .15s var(--ease),border-color .15s var(--ease)}
+.l-btn:active{transform:scale(.98)}
+.l-p{background:#000;color:#fff}
+.l-s{background:#fff;color:#000;box-shadow:var(--shadow-pill)}
+@media (hover:hover){ .l-p:hover{background:#44403B} .l-s:hover{background:var(--g25)} }
+.h8{height:32px;padding:0 12px;font-size:13px} .h9{height:36px;padding:0 14px;font-size:14px}
+.h10{height:40px;padding:0 16px;font-size:15px} .h11{height:44px;padding:0 20px;font-size:16px}
+.l-ibtn{width:40px;height:40px;padding:0} .l-ibtn.sm{width:32px;height:32px}
+.l-line1{display:inline}
+@media (min-width:640px){ .l-line1{white-space:nowrap} }
+.l-p:disabled{background:var(--g400);cursor:default}
+
+/* ---- announcement bar + sheet notches ---- */
+.l-ann{position:relative;z-index:50;display:flex;align-items:center;justify-content:center;gap:16px;height:48px;padding:8px 16px;background:var(--cream)}
+.l-ann .notch{position:absolute;bottom:-20px;width:20px;height:22px;color:var(--cream);pointer-events:none}
+.l-ann .notch.l{left:0} .l-ann .notch.r{right:0;transform:scaleX(-1)}
+.l-ann .msg{color:var(--g600)} .l-ann .msg b{font-weight:400;color:#000}
+.l-ann .more{display:none}
+@media (min-width:768px){ .l-ann .more{display:inline} }
+
+/* ---- main nav + sticky header ---- */
+.l-nav{position:relative;z-index:50;display:flex;align-items:center;height:64px;column-gap:28px}
+@media (min-width:1280px){ .l-nav{column-gap:36px} }
+.l-logo{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px;margin:0 -12px;border-radius:9999px;font-family:var(--font-sans),Geist,Inter,sans-serif;font-weight:500;font-size:17px;letter-spacing:-.01em}
+.l-mark{width:20px;height:20px;border-radius:6px;background:#000;color:#fff;display:grid;place-items:center}
+.l-links{display:none}
+@media (min-width:1024px){ .l-links{display:flex} }
+.l-links button{display:block;height:36px;padding:8px 12px;border-radius:9999px;font-size:14px;line-height:20px;transition:background-color .15s var(--ease)}
+@media (hover:hover){ .l-links button:hover{background:rgba(41,37,36,.05)} }
+.l-nav-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.l-burger{display:inline-flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:9999px}
+@media (min-width:1024px){ .l-burger{display:none} }
+.l-hide-sm{display:none} @media (min-width:640px){ .l-hide-sm{display:inline-flex} }
+.l-menu{position:absolute;right:0;top:60px;z-index:60;min-width:220px;padding:6px;border-radius:24px;background:#fff;box-shadow:var(--shadow-pill),var(--ring-card);animation:l-pop .15s var(--ease)}
+.l-menu button{display:flex;width:100%;height:40px;align-items:center;padding:0 14px;border-radius:9999px;font-size:14px}
+.l-menu button:hover,.l-menu button:focus{background:rgba(41,37,36,.05);outline:none}
+.l-menu button:focus-visible{outline:1.5px solid var(--focus);outline-offset:-2px}
+@keyframes l-pop{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
+.l-sticky{position:fixed;top:0;left:0;right:0;z-index:9998;height:64px;background:#fff;display:flex;align-items:center;visibility:hidden;transform:translateY(-100%);transition:transform .3s var(--ease),visibility .3s}
+.l-sticky.on{visibility:visible;transform:translateY(0)}
+.l-skip{position:absolute;left:16px;top:8px;z-index:9999;transform:translateY(-200%)}
+.l-skip:focus{transform:none}
+
+/* ---- hero demo panel ---- */
+.l-panel-wrap{position:relative;isolation:isolate;width:100%;margin-top:80px}
+@media (min-width:848px){ .l-panel-wrap{margin-top:64px} }
+.l-panel{position:relative;isolation:isolate;margin-inline:-1px;background:var(--cream);border-radius:24px;display:grid;column-gap:64px;padding:0 16px;
+  grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 1fr auto;min-height:558px}
+@media (min-width:640px){ .l-panel{padding:0 32px} }
+@media (min-width:848px){ .l-panel{grid-template-columns:auto minmax(0,1fr);height:558px} }
+@media (min-width:1024px){ .l-panel{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)} }
+.l-ring{position:absolute;inset:0;z-index:30;border-radius:inherit;pointer-events:none;box-shadow:var(--ring-card)}
+.l-rail{position:absolute;left:0;width:100%;bottom:100%;z-index:40}
+.l-rail-in{position:relative;overflow:hidden;border-radius:24px 24px 0 0;background:var(--cream);padding:6px 6px 20px;transform:translateY(20px)}
+.l-rail-tint{position:absolute;inset:0;background:rgba(0,0,0,.01)}
+.l-rail-seam{position:absolute;left:0;right:0;bottom:0;height:20px;background:var(--cream)}
+.l-rail-ring{position:absolute;left:0;right:0;top:0;bottom:-1px;border-radius:24px 24px 0 0;border:.5px solid var(--card-ring);border-bottom:0;pointer-events:none}
+.l-tabs{position:relative;z-index:1;display:grid;grid-auto-columns:minmax(0,1fr);grid-auto-flow:column;height:44px}
+.l-tab{position:relative;isolation:isolate;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:14px;color:var(--g700);font-size:16px;line-height:24px;letter-spacing:.01em}
+.l-tab .hov{position:absolute;inset:0;z-index:-10;border-radius:14px;background:var(--g200);opacity:0;transition:opacity .15s var(--ease)}
+.l-tab .act{position:absolute;inset:2px;z-index:-10;border-radius:14px;background:#fff;box-shadow:var(--shadow-pill);opacity:0;
+  transition:inset .3s cubic-bezier(.16,1,.3,1),opacity .3s cubic-bezier(.16,1,.3,1)}
+.l-tab[aria-selected="true"]{color:#000}
+.l-tab[aria-selected="true"] .act{inset:0;opacity:1}
+@media (hover:hover){ .l-tab:hover{color:#000} .l-tab:hover .hov{opacity:1} }
+.l-tab .lbl{display:none} @media (min-width:640px){ .l-tab .lbl{display:inline} }
+.l-tdot{width:12px;height:12px;border-radius:9999px;overflow:hidden;position:relative;flex:none}
+.l-content{grid-column:1/-1;grid-row:2;display:flex;align-items:center;justify-content:center;padding:40px 0 24px;min-width:0;animation:l-fade 1s ease}
+@keyframes l-fade{from{opacity:0}to{opacity:1}}
+.l-pnav{grid-row:3;grid-column:1;align-self:center;padding-bottom:24px;min-width:0}
+.l-pcta{grid-row:3;grid-column:2;justify-self:end;align-self:center;padding-bottom:24px}
+@media (min-width:1024px){ .l-pnav{grid-column:2} .l-pcta{grid-column:3} }
+.l-seg{display:flex;flex-wrap:wrap;border-radius:9999px}
+.l-seg button{position:relative;isolation:isolate;height:40px;padding:0 16px;border-radius:9999px;color:var(--g700);font-size:16px;line-height:24px;letter-spacing:.01em}
+.l-seg button::before{content:"";position:absolute;inset:0;z-index:-10;border-radius:9999px;background:var(--g200);opacity:0;transition:opacity .15s var(--ease)}
+@media (hover:hover){ .l-seg button:hover{color:#000} .l-seg button:hover::before{opacity:1} }
+@media (max-width:847px){ .l-pnav .l-seg{display:none} }
+
+/* orb carousel */
+.l-carousel{position:relative;width:calc(100% + 48px);margin:0 -24px;overflow:hidden;padding-top:4px}
+.l-orbs{position:relative;height:256px}
+.l-orb{position:absolute;left:50%;top:0;width:256px;height:256px;border-radius:9999px;transform-origin:center top;transition:transform 360ms ease,opacity 360ms ease}
+.l-orb .art{position:absolute;inset:0;border-radius:9999px;overflow:hidden;isolation:isolate;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.01)}
+.l-orb .hring{position:absolute;inset:-4px;border-radius:9999px;border:4px solid var(--g200);opacity:0;transform:scale(.985);transition:opacity .2s var(--ease),transform .2s var(--ease);pointer-events:none}
+@media (hover:hover){ .l-orb:hover .hring{opacity:1;transform:scale(1)} }
+.l-orb:focus-visible{outline-offset:6px}
+.l-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:9999px;background:#fff;display:grid;place-items:center;color:#000;box-shadow:var(--shadow-pill);z-index:5}
+@media (hover:hover){ .l-play:hover{color:var(--g600)} }
+.l-efade{position:absolute;top:0;bottom:0;width:176px;z-index:10;pointer-events:none;display:none}
+.l-efade.l{left:0;background:linear-gradient(to right,var(--cream),transparent)} .l-efade.r{right:0;background:linear-gradient(to left,var(--cream),transparent)}
+@media (min-width:768px){ .l-efade{display:block} }
+.l-caps{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;gap:16px;margin:36px auto 0;max-width:340px;text-align:center}
+@media (min-width:768px){ .l-caps{grid-template-columns:minmax(0,1fr) 40px minmax(0,260px) 40px minmax(0,1fr);max-width:900px} }
+.l-caps .side{display:none}
+@media (min-width:768px){ .l-caps .side{display:block} }
+.l-caps .side .tt{color:var(--g500)} .l-caps .side .dd{color:var(--g400)}
+
+/* demo cards */
+.l-demo{position:relative;width:100%;max-width:640px;background:#fff;border-radius:24px;box-shadow:var(--ring-demo)}
+.l-demo .body{padding:20px 24px}
+.l-demo .foot{display:flex;align-items:center;gap:8px;padding:0 12px 12px 24px}
+.l-row{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--g200);font-size:15px;line-height:22px}
+.l-row:last-child{border-bottom:0}
+.l-chip{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px;border-radius:9999px;background:var(--cream);font-size:12px;line-height:12px;font-weight:500;color:#000}
+.l-chat{width:100%;max-width:37rem;display:flex;flex-direction:column}
+.l-bub{align-self:flex-start;max-width:30rem;background:#fff;color:#000;border-radius:20px;padding:10px 14px;box-shadow:var(--shadow-bubble);font-size:14px;line-height:20px;font-weight:500;margin-top:8px}
+.l-bub.last{border-radius:7px 22px 22px 22px}
+.l-bub.me{align-self:flex-end;background:transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);border-radius:9999px}
+.l-typing{display:inline-flex;gap:4px;padding:14px;background:#fff;border-radius:20px;box-shadow:var(--shadow-bubble);margin-top:8px;align-self:flex-start}
+.l-typing i{width:6px;height:6px;border-radius:9999px;background:var(--g500);animation:typing-dot-bounce 1.24s var(--ease) infinite}
+.l-typing i:nth-child(2){animation-delay:.12s} .l-typing i:nth-child(3){animation-delay:.24s}
+@keyframes typing-dot-bounce{0%,58%,100%{opacity:.6;transform:translateY(0)}28%{opacity:.6;transform:translateY(-3px)}}
+
+/* art + noise */
+.l-noise{position:absolute;inset:0;z-index:1;mix-blend-mode:overlay;opacity:.35;pointer-events:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");background-size:256px}
+.orb-1{background:radial-gradient(circle at 35% 30%,#FFD2A8,transparent 40%),radial-gradient(circle at 60% 70%,#E2401C,transparent 60%),#F27A1A}
+.orb-2{background:radial-gradient(circle at 30% 30%,#E9B7F0,transparent 45%),radial-gradient(circle at 70% 60%,#7C8BF5,transparent 55%),#B98CE6}
+.orb-3{background:radial-gradient(circle at 40% 30%,#C8D9CC,transparent 50%),#9DB3A5}
+.orb-4{background:radial-gradient(circle at 35% 35%,#8E6A5E,transparent 50%),radial-gradient(circle at 70% 70%,#C07A70,transparent 55%),#4A3530}
+.art-fill{position:absolute;inset:0}
+
+/* tool wall */
+.l-wall{display:grid;width:fit-content;margin:0 auto;grid-template-columns:repeat(2,minmax(0,148px));gap:24px 20px}
+@media (min-width:640px){ .l-wall{grid-template-columns:repeat(4,minmax(0,148px));column-gap:56px;row-gap:32px} }
+.l-wall li{height:26px;display:flex;align-items:center;justify-content:center;font-family:var(--font-sans),Geist,Inter,sans-serif;font-weight:500;font-size:16px;letter-spacing:-.01em;color:rgba(0,0,0,.3);white-space:nowrap;transition:color .15s var(--ease)}
+@media (hover:hover){ .l-wall li:hover{color:#000} }
+
+/* product duo */
+.l-duo{display:grid;grid-template-columns:minmax(0,1fr);row-gap:16px}
+.l-duo .cap{max-width:16rem}
+.l-duo .bg,.l-duo .dring{display:none}
+.l-duo .cap h3{font-size:16px;line-height:24px;letter-spacing:.01em;font-weight:500}
+.l-duo .cap p{margin-top:16px}
+.l-shot{position:relative;background:var(--cream);border-radius:24px;padding:36px 24px 0;overflow:hidden;box-shadow:var(--ring-card)}
+.l-frame{border:.5px solid var(--card-ring);border-bottom:0;border-radius:16px 16px 0 0;background:#fff;overflow:hidden;min-height:220px}
+.l-frame-bar{display:flex;justify-content:space-between;gap:8px;padding:10px 16px;border-bottom:1px solid var(--g200);font-size:12px;line-height:16px;color:var(--g500)}
+.l-frame .rows{padding:8px 16px 24px}
+.l-docline{padding:8px 12px;margin-top:8px;border-left:2px solid #000;background:var(--g50);font-size:14px;line-height:21px}
+@media (min-width:768px){
+  .l-duo{grid-template-columns:2fr 1fr 2fr;row-gap:44px;padding:12px 32px 0;border-radius:0 0 24px 24px;overflow:hidden;isolation:isolate}
+  .l-duo .cap.a{grid-column:1;grid-row:1} .l-duo .cap.b{grid-column:3;grid-row:1}
+  .l-duo .bg{display:block;grid-column:1/-1;grid-row:2;background:var(--cream);border-radius:24px;height:440px}
+  .l-duo .dring{display:block;grid-column:1/-1;grid-row:2;border-radius:24px;box-shadow:var(--ring-card);z-index:50;pointer-events:none}
+  .l-shot{grid-row:2;background:transparent;box-shadow:none;border-radius:0;padding:36px 0 0;height:440px;transition:all .5s var(--ease);
+    -webkit-mask-size:200% 100%;mask-size:200% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+  .l-shot .l-frame{height:100%}
+  .l-shot.a{grid-column:1/3;margin-left:32px;-webkit-mask-image:linear-gradient(to right,#fff 75%,transparent 83.33%);mask-image:linear-gradient(to right,#fff 75%,transparent 83.33%)}
+  .l-shot.b{grid-column:2/4;margin-right:32px;-webkit-mask-image:linear-gradient(to left,#fff 75%,transparent 83.33%);mask-image:linear-gradient(to left,#fff 75%,transparent 83.33%)}
+  .l-shot.a.front{z-index:1;transform:translateY(0);-webkit-mask-position:50% 0;mask-position:50% 0}
+  .l-shot.a.back{z-index:0;transform:translateY(12px);-webkit-mask-position:100% 0;mask-position:100% 0}
+  .l-shot.b.front{z-index:1;transform:translateY(0);-webkit-mask-position:50% 0;mask-position:50% 0}
+  .l-shot.b.back{z-index:0;transform:translateY(12px);-webkit-mask-position:0 0;mask-position:0 0}
+}
+
+/* bento cards */
+.l-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
+.l-c4{grid-column:span 12} @media (min-width:640px){ .l-c4{grid-column:span 6} } @media (min-width:1024px){ .l-c4{grid-column:span 4} }
+.l-card{position:relative;isolation:isolate;height:100%}
+.l-card-in{position:relative;isolation:isolate;height:100%;overflow:hidden;border-radius:24px;background:var(--cream)}
+.l-card-col{position:relative;display:flex;flex-direction:column;justify-content:space-between;height:100%;min-height:248px;padding:20px 20px 24px}
+@media (min-width:640px){ .l-card-col{padding:28px 28px 32px} }
+.l-ico{width:40px;height:40px;border-radius:10px;box-shadow:var(--ring-icon);display:flex;align-items:center;justify-content:center;margin-bottom:64px}
+.l-card h3{font-size:15px;line-height:22px;letter-spacing:.01em;color:var(--g500)}
+.l-card h3 button{display:inline-flex;align-items:center;gap:6px}
+.l-card h3 .arr{opacity:0;transition:opacity .15s var(--ease)}
+@media (hover:hover){ .l-card:hover h3 .arr{opacity:1} }
+.l-card h3 .cover{position:absolute;inset:0;z-index:10;border-radius:24px}
+.l-card .desc{margin-top:18px;font-size:15px;line-height:22px;letter-spacing:.01em;color:#000}
+.l-card-ring{position:absolute;inset:0;z-index:30;border-radius:24px;pointer-events:none;box-shadow:var(--ring-card)}
+
+/* safety cards: scroll-snap below lg, 3-up at lg */
+.l-snap{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:4px}
+.l-snap::-webkit-scrollbar{display:none}
+.l-snap > *{flex:none;width:min(370px,85%);scroll-snap-align:start}
+@media (min-width:1024px){ .l-snap{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible} .l-snap > *{width:auto} }
+.l-safe .l-card-col{min-height:449px;padding-top:32px;justify-content:flex-start}
+.l-safe .art{width:202px;height:202px;margin:16px auto 48px}
+@media (min-width:640px){ .l-safe .art{margin:32px auto 56px} }
+@media (min-width:1280px){ .l-safe .art{margin:48px auto 72px} }
+.l-safe h3{font-size:16px;line-height:24px;color:#000}
+.l-safe .desc{color:var(--g500)}
+
+/* CTA band */
+.l-band{border-block:1px solid var(--frame)}
+.l-band-in{display:flex;flex-direction:column;gap:32px 64px;padding:72px 16px}
+@media (min-width:768px){ .l-band-in{padding:72px 48px} }
+@media (min-width:1024px){ .l-band-in{flex-direction:row;align-items:flex-end} }
+.l-band-in .t4{flex:auto;margin:auto 0;text-align:center}
+@media (min-width:1024px){ .l-band-in .t4{text-align:left} }
+.l-band-in .btns{display:flex;flex-wrap:wrap;justify-content:center;gap:12px 8px}
+
+/* footer */
+.l-foot{margin-top:64px;padding-bottom:128px;display:grid;grid-template-columns:minmax(0,1fr);gap:64px 24px}
+@media (min-width:1024px){ .l-foot{grid-template-columns:repeat(4,minmax(0,1fr))} }
+.l-foot-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:40px 16px}
+@media (min-width:640px){ .l-foot-groups{grid-template-columns:repeat(3,minmax(0,1fr));column-gap:24px} }
+@media (min-width:1024px){ .l-foot-groups{grid-column:span 3} }
+.l-foot h4{font-size:14px;line-height:21px;letter-spacing:.01em;font-weight:400;color:var(--g500)}
+.l-foot ul{margin-top:3px}
+.l-foot li button{display:flex;align-items:center;height:28px;padding:0 6px;margin:0 -6px;border-radius:4px;font-size:14px;color:var(--g700);transition:color .15s var(--ease)}
+@media (hover:hover){ .l-foot li button:hover{color:#000} }
+
+/* floating voice pill */
+.l-voice{position:fixed;bottom:16px;left:16px;right:16px;z-index:50;display:flex;justify-content:center;pointer-events:none}
+@media (min-width:640px){ .l-voice{justify-content:flex-end} }
+.l-voice button{pointer-events:auto;position:relative;isolation:isolate;display:flex;align-items:center;height:48px;padding:0 20px 0 48px;border-radius:28px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.15);font-size:15px}
+@media (min-width:640px){ .l-voice button{height:56px;padding-left:56px} }
+.l-voice .vorb{position:absolute;left:10px;top:50%;width:28px;height:28px;margin-top:-14px;border-radius:9999px;overflow:hidden;
+  background:radial-gradient(circle at 30% 30%,#8FD3FF,transparent 50%),radial-gradient(circle at 70% 70%,#2FBF8F,transparent 55%),#2A7BD8}
+@media (min-width:640px){ .l-voice .vorb{width:36px;height:36px;margin-top:-18px;left:10px} }
+
+@media (prefers-reduced-motion: reduce){
+  .lp2 *,.lp2 *::before,.lp2 *::after{animation:none!important;transition-duration:0s!important}
+}
+`;
+
+/* ============================== LANDING (DESIGN.md) =================== */
+const LP_TABS = [
+  { id: "capture", label: "Capture", dot: "orb-1", cta: ["Open capture", "capture"], links: [["Live session", "capture"], ["Trust and privacy", "trust"]] },
+  { id: "map", label: "Map", dot: "orb-2", cta: ["Open the Work Map", "map"], links: [["Debrief", "debrief"], ["Work Map", "map"], ["Agent export", "export"]] },
+  { id: "teach", label: "Teach", dot: "orb-3", cta: ["Open coach", "teach"], links: [["Coaching", "teach"], ["Results", "results"]] },
+];
+// One orb per live question from the captured session (demo data).
+const LP_MOMENTS = [
+  { orb: "orb-1", t: "01:35", title: "Acme ARR", q: "You changed Acme from $190,000 to $110,000. Why not add both contracts?" },
+  { orb: "orb-2", t: "02:30", title: "Relocation add-back", q: "What made the $4 million relocation add-back look recurring?" },
+  { orb: "orb-3", t: "03:19", title: "Capex history", q: "When capex is below history, when do you stop and escalate?" },
+  { orb: "orb-4", t: "03:25", title: "Before saving", q: "What must be escalated before these inputs can be committed?" },
+];
+const ORB_SLOTS = { 0: ["0rem", "0rem", 1, 1, 3], 1: ["19.404rem", "1.702rem", 0.787, 0.8, 2], 2: ["33.362rem", "3.404rem", 0.567, 0.5, 1], 3: ["43.121rem", "4.085rem", 0.426, 0, 0] };
+
+function Notch({ side }) {
+  return (
+    <svg viewBox="0 0 20 22" className={"notch " + side} aria-hidden>
+      <path d="M20 2C8.954 2 0 10.954 0 22V0H20V2Z" fill="currentColor" />
+      <path d="M20 2H20.25V22.25H0V22H-.25C-.25 10.816 8.816 1.75 20 1.75V2Z" stroke="black" strokeOpacity=".1" strokeWidth=".5" fill="none" />
+    </svg>
+  );
+}
+const Dots = ({ c = ["tl", "tr"] }) => c.map((k) => <span key={k} className={"l-dot " + k} aria-hidden />);
+const Mark = () => <span className="l-mark" aria-hidden><ShieldCheck size={13} /></span>;
+
+function OrbCarousel() {
+  const [a, setA] = useState(0);
+  const n = LP_MOMENTS.length;
+  const slot = (i) => { let d = (i - a + n) % n; if (d > n / 2) d -= n; return d; };
+  const step = (d) => setA((x) => (x + d + n) % n);
+  const cur = LP_MOMENTS[a], prev = LP_MOMENTS[(a - 1 + n) % n], next = LP_MOMENTS[(a + 1) % n];
+  const say = () => { try { const u = new SpeechSynthesisUtterance(cur.q); window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); } catch { /* no speech */ } };
+  return (
+    <div className="l-carousel" aria-roledescription="carousel" aria-label="Questions the apprentice asked">
+      <div className="l-orbs">
+        {LP_MOMENTS.map((m, i) => {
+          const d = slot(i); const [x, y, s, o, z] = ORB_SLOTS[Math.min(3, Math.abs(d))];
+          const sign = d < 0 ? "-" : "+";
+          const style = { transform: `translateX(calc(-50% ${sign} ${x})) translateY(${y}) scale(${s})`, opacity: o, zIndex: z };
+          const center = d === 0;
+          return (
+            <div key={m.title} className="l-orb" style={style} aria-hidden={!center && Math.abs(d) > 1}>
+              <div className="art"><div className={"art-fill " + m.orb} /><div className="l-noise" /></div>
+              {!center && Math.abs(d) <= 1 && <button className="art" style={{ background: "transparent" }} aria-label={`Show: ${m.title}`} onClick={() => setA(i)} />}
+              <span className="hring" aria-hidden />
+              {center && <button className="l-play" onClick={say} aria-label={`Play the question: ${m.q}`}><Play size={18} fill="currentColor" aria-hidden /></button>}
+            </div>);
+        })}
+        <div className="l-efade l" aria-hidden /><div className="l-efade r" aria-hidden />
+      </div>
+      <div className="l-caps">
+        <div className="side" aria-hidden><p className="tb tt">{prev.title}</p><p className="txs dd" style={{ marginTop: 6 }}>{prev.q}</p></div>
+        <button className="l-btn l-s l-ibtn" aria-label="Previous" onClick={() => step(-1)}><ChevronLeft size={16} aria-hidden /></button>
+        <div aria-live="polite">
+          <p className="tb" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{cur.title}<span className="mu txs">{cur.t}</span></p>
+          <p className="txs" style={{ marginTop: 6 }}>{cur.q}</p>
+        </div>
+        <button className="l-btn l-s l-ibtn" aria-label="Next" onClick={() => step(1)}><ChevronRight size={16} aria-hidden /></button>
+        <div className="side" aria-hidden><p className="tb tt">{next.title}</p><p className="txs dd" style={{ marginTop: 6 }}>{next.q}</p></div>
+      </div>
+    </div>
+  );
+}
+
+const MAP_DEMO_RULE = RULE["acme-amendment-language"];
+const MAP_DEMO_STOP = RULE["relocation-recurrence"];
+const MAP_DEMO_STEP = STEPS.find((step) => step.n === MAP_DEMO_RULE.step);
+
+function MapDemo() {
+  return (
+    <div className="l-demo">
+      <div className="body">
+        <div className="row" style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between" }}>
+          <p className="tsm mu">Step {MAP_DEMO_STEP.n} of {STEPS.length}: {MAP_DEMO_STEP.title}</p>
+          <span className="l-chip"><Check size={12} aria-hidden /> Verified by {EXPERT.first}</span>
+        </div>
+        <p className="tb" style={{ marginTop: 16 }}>{MAP_DEMO_RULE.text}</p>
+        <p className="tsm" style={{ marginTop: 12, color: "var(--g700)" }}>“{QUOTES["q-acme"].en}”</p>
+        <p className="txs mu" style={{ marginTop: 4 }}>{EXPERT.first}, live question at {fmt(QUOTES["q-acme"].t)}</p>
+      </div>
+      <div style={{ borderTop: "1px solid var(--g200)", padding: "16px 24px", display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <Hand size={16} aria-hidden style={{ marginTop: 3, flex: "none" }} />
+        <div><p className="tsm">Stop point</p><p className="tsm mu">{MAP_DEMO_STOP.text}</p></div>
+      </div>
+    </div>
+  );
+}
+
+function TeachDemo() {
+  const [phase, setPhase] = useState("idle");
+  const t = useRef(null);
+  useEffect(() => () => clearTimeout(t.current), []);
+  function save() {
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) { setPhase("shown"); return; }
+    setPhase("typing"); t.current = setTimeout(() => setPhase("shown"), 1200);
+  }
+  return (
+    <div className="l-chat">
+      <div className="l-demo">
+        <div className="body" style={{ paddingBottom: 8 }}>
+          <p className="txs mu">{TEACH_DEAL.code}, model inputs entered by {TRAINEE.first}</p>
+          <div className="l-row"><span>ARR: Crestline Health</span><span>$190,000</span></div>
+          <div className="l-row"><span>Add-back: relocation, one-time</span><span>Accept $4.0M</span></div>
+        </div>
+        <div className="foot">
+          <span className="txs mu">Then runs the debt schedule at 5.5×</span><span style={{ flex: 1 }} />
+          {phase === "idle"
+            ? <button className="l-btn l-p h9" onClick={save}>Save inputs</button>
+            : <button className="l-btn l-s h9" onClick={() => setPhase("idle")}><RotateCcw size={14} aria-hidden /> Reset</button>}
+        </div>
+      </div>
+      <div aria-live="polite" style={{ display: "flex", flexDirection: "column", minHeight: 132 }}>
+        {phase === "typing" && <span className="l-typing" aria-label="Tutor is typing"><i /><i /><i /></span>}
+        {phase === "shown" && <>
+          <p className="l-bub me">Save inputs</p>
+          <p className="l-bub">Wait. {EXPERT.first} would flag this ARR total and the relocation add-back.</p>
+          <p className="l-bub last">Does the new software agreement add to the original, or replace it?</p>
+        </>}
+        {phase === "idle" && <p className="txs mu" style={{ marginTop: 16, textAlign: "center" }}>Press Save to see the tutor step in.</p>}
+      </div>
+    </div>
+  );
+}
+
+function HeroPanel() {
+  const { go } = useApp();
+  const [tab, setTab] = useState("capture");
+  const refs = useRef({});
+  const cur = LP_TABS.find((x) => x.id === tab);
+  function key(e) {
+    const i = LP_TABS.findIndex((x) => x.id === tab); let j = null;
+    if (e.key === "ArrowRight") j = (i + 1) % 3; if (e.key === "ArrowLeft") j = (i + 2) % 3;
+    if (e.key === "Home") j = 0; if (e.key === "End") j = 2;
+    if (j != null) { e.preventDefault(); setTab(LP_TABS[j].id); refs.current[LP_TABS[j].id]?.focus(); }
+  }
+  return (
+    <div className="l-panel-wrap">
+      <div className="l-panel" id="how">
+        <div className="l-ring" aria-hidden />
+        <div className="l-rail">
+          <div className="l-rail-in">
+            <div className="l-rail-tint" aria-hidden /><div className="l-rail-seam" aria-hidden /><div className="l-rail-ring" aria-hidden />
+            <div className="l-tabs" role="tablist" aria-label="How it works" onKeyDown={key}>
+              {LP_TABS.map((x) => (
+                <button key={x.id} ref={(el) => (refs.current[x.id] = el)} role="tab" id={"lt-" + x.id} aria-controls="lt-panel" aria-label={x.label}
+                  aria-selected={tab === x.id} tabIndex={tab === x.id ? 0 : -1} className="l-tab" onClick={() => setTab(x.id)}>
+                  <span className="l-tdot" aria-hidden><span className={"art-fill " + x.dot} /></span><span className="lbl">{x.label}</span>
+                  <span className="hov" aria-hidden /><span className="act" aria-hidden />
+                </button>))}
+            </div>
+          </div>
+        </div>
+        <div className="l-content" key={tab} id="lt-panel" role="tabpanel" aria-labelledby={"lt-" + tab}>
+          {tab === "capture" && <OrbCarousel />}
+          {tab === "map" && <MapDemo />}
+          {tab === "teach" && <TeachDemo />}
+        </div>
+        <nav className="l-pnav" aria-label={`${cur.label} in the dashboard`}>
+          <div className="l-seg">{cur.links.map(([l, p]) => <button key={l} onClick={() => go(p)}>{l}</button>)}</div>
+        </nav>
+        <div className="l-pcta"><button className="l-btn l-p h10" onClick={() => go(cur.cta[1])}>{cur.cta[0]}</button></div>
+      </div>
+    </div>
+  );
+}
+
+function Duo() {
+  const [front, setFront] = useState("a");
+  return (
+    <div className="l-duo" onMouseLeave={() => setFront("a")}>
+      <div className="cap a"><h3>In the model</h3><p className="tsm mu">Management's numbers, typed straight in.</p></div>
+      <div className={"l-shot a " + (front === "a" ? "front" : "back")} onMouseEnter={() => setFront("a")} aria-hidden>
+        <div className="l-frame">
+          <div className="l-frame-bar"><span>LBO model v3.xlsx</span><span>Management case</span></div>
+          <div className="rows">
+            <div className="l-row"><span>ARR: Crestline Health</span><span>$190,000</span></div>
+            <div className="l-row"><span>Add-back: relocation, one-time</span><span>$4.0M</span></div>
+            <div className="l-row"><span>Maintenance capex, % of revenue</span><span>1.6%</span></div>
+            <div className="l-row"><span>Sponsor IRR, 5 years</span><span>26.8%</span></div>
+          </div>
+        </div>
+      </div>
+      <div className="cap b"><h3>In the data room</h3><p className="tsm mu">The documents that prove each one wrong.</p></div>
+      <div className={"l-shot b " + (front === "b" ? "front" : "back")} onMouseEnter={() => setFront("b")} aria-hidden>
+        <div className="l-frame">
+          <div className="l-frame-bar"><span>{TEACH_DEAL.code} data room</span><span>Primary sources</span></div>
+          <div className="rows">
+            <div className="l-docline">§1.2 This Agreement supersedes and replaces the Master Services Agreement dated 9 February 2023.</div>
+            <div className="l-docline">Relocation and facility moves: 2022 $1.4M, 2023 $1.9M, 2024 $1.6M.</div>
+            <div className="l-docline">Maintenance capex averaged 4.0% of revenue, 2021–2024.</div>
+          </div>
+        </div>
+      </div>
+      <div className="bg" aria-hidden /><div className="dring" aria-hidden />
+      <p className="l-sr">In the model: $190,000 ARR, a $4.0M one-time add-back and 1.6% capex. In the data room: the 2025 agreement replaces the MSA, relocation costs recur every year since 2022, and capex averaged 4.0%.</p>
+    </div>
+  );
+}
+
+const LP_CATCH = [
+  { icon: Copy, label: "Double-counted ARR", text: "An $80k MSA plus the $110k agreement that replaces it. Real ARR is $110,000." },
+  { icon: RotateCcw, label: "A recurring “one-time” cost", text: "A $4.0M relocation add-back. The same cost appears every year since 2022." },
+  { icon: AlertTriangle, label: "Capex below history", text: "1.6% against a 4.0% history. IRR falls 5.3 pp at history." },
+];
+
+function LineArt({ kind }) {
+  const s = { fill: "none", stroke: "#000", strokeWidth: 1 }; const d = { ...s, strokeDasharray: "2 3", opacity: 0.5 };
+  if (kind === "circles") return (
+    <svg className="art" viewBox="0 0 202 202" aria-hidden>
+      {[90, 70, 50, 30].map((r) => <circle key={r} cx="101" cy="101" r={r} {...s} />)}
+      <line x1="11" y1="101" x2="191" y2="101" {...d} /><line x1="101" y1="11" x2="101" y2="191" {...d} />
+      <line x1="40" y1="162" x2="162" y2="40" {...s} />
+    </svg>);
+  if (kind === "lattice") return (
+    <svg className="art" viewBox="0 0 202 202" aria-hidden>
+      {[0, 1, 2].map((i) => [0, 1, 2].map((j) => <rect key={i + "-" + j} x={31 + i * 46} y={31 + j * 46} width="46" height="46" {...(i === 1 && j === 1 ? { ...s, fill: "#000" } : s)} />))}
+      <path d="M31 31 L61 11 L199 11 L169 31" {...d} /><path d="M169 31 L199 11 L199 149 L169 169" {...d} />
+    </svg>);
+  return (
+    <svg className="art" viewBox="0 0 202 202" aria-hidden>
+      <ellipse cx="101" cy="160" rx="70" ry="18" {...s} /><path d="M31 160 L101 30 L171 160" {...s} />
+      <line x1="101" y1="30" x2="101" y2="160" {...d} /><line x1="20" y1="160" x2="190" y2="160" {...d} />
+      <path d="M86 92 l10 10 l20 -22" {...s} strokeWidth="1.5" />
+    </svg>);
+}
+
+function Landing2() {
+  const { go, fillDemo } = useApp();
+  const [stuck, setStuck] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const menuRef = useRef(null); const burger = useRef(null);
+  useEffect(() => {
+    const f = () => setStuck(window.scrollY >= 450); f();
+    window.addEventListener("scroll", f, { passive: true }); return () => window.removeEventListener("scroll", f);
+  }, []);
+  useEffect(() => { if (menu) menuRef.current?.querySelector("button")?.focus(); }, [menu]);
+  const jump = (id) => { setMenu(false); document.getElementById(id)?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" }); };
+  const anchors = [["How it works", "how"], ["What it catches", "catch"], ["Trust", "trust"]];
+
+  return (
+    <div className="lp2">
+      <button className="l-btn l-p h9 l-skip" onClick={() => { const m = document.getElementById("lp-main"); m?.focus(); }}>Skip to content</button>
+
+      <div className="l-ann" role="note">
+        <p className="txs-t msg"><b>Demo data · fictional deals.</b><span className="more"> Built for the Hack-Nation × ElevenLabs AI Apprentice challenge.</span></p>
+        <button className="l-btn l-s h8" onClick={fillDemo}>See the finished demo</button>
+        <Notch side="l" /><Notch side="r" />
+      </div>
+
+      <header className="l-container l-nav">
+        <button className="l-logo" onClick={() => window.scrollTo({ top: 0 })} aria-label="Apprentice, back to top"><Mark />Apprentice</button>
+        <nav aria-label="On this page"><ul className="l-links">{anchors.map(([l, id]) => <li key={id}><button onClick={() => jump(id)}>{l}</button></li>)}</ul></nav>
+        <div className="l-nav-right" style={{ position: "relative" }}>
+          <button className="l-btn l-s h9 l-hide-sm" onClick={fillDemo}>See the demo</button>
+          <button className="l-btn l-p h9" onClick={() => go("overview")}>Open dashboard</button>
+          <button ref={burger} className="l-burger" aria-label="Menu" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)}>{menu ? <X size={20} aria-hidden /> : <Menu size={20} aria-hidden />}</button>
+          {menu && <div className="l-menu" role="menu" ref={menuRef} onKeyDown={(e) => {
+            const items = [...menuRef.current.querySelectorAll("button")]; const i = items.indexOf(document.activeElement);
+            if (e.key === "ArrowDown") { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+            if (e.key === "ArrowUp") { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+            if (e.key === "Escape") { setMenu(false); burger.current.focus(); }
+          }}>{anchors.map(([l, id]) => <button key={id} role="menuitem" onClick={() => jump(id)}>{l}</button>)}</div>}
+        </div>
+      </header>
+
+      <div className={"l-sticky" + (stuck ? " on" : "")} aria-hidden={!stuck}>
+        <div className="l-container" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}><Mark /><span className="txs mu l-hide-sm">Demo data · fictional deals</span></span>
+          <span style={{ display: "flex", gap: 8 }}>
+            <button className="l-btn l-s h9" tabIndex={stuck ? 0 : -1} onClick={fillDemo}>See the demo</button>
+            <button className="l-btn l-p h9" tabIndex={stuck ? 0 : -1} onClick={() => go("overview")}>Open dashboard</button>
+          </span>
+        </div>
+      </div>
+
+      <main id="lp-main" tabIndex={-1} style={{ outline: "none" }}>
+        {/* Hero (not framed) */}
+        <section className="l-container pt-d pb-sm">
+          <div className="l-title">
+            <div className="head"><h1 className="l-display t6" style={{ maxWidth: "36rem" }}><span className="l-line1">Partner-grade skepticism</span> <span style={{ display: "table" }}>for every analyst</span></h1></div>
+            <div className="cta">
+              <button className="l-btn l-p h11" onClick={() => go("overview")}>Open the dashboard</button>
+              <button className="l-btn l-s h11" onClick={fillDemo}>See the finished demo</button>
+            </div>
+            <div className="lead"><p className="tb">The AI Apprentice learns how a senior partner challenges management's numbers, then stops junior analysts before an unverified one reaches the model.</p></div>
+          </div>
+        </section>
+        <section className="l-container pb-d" aria-label="How it works"><HeroPanel /></section>
+
+        {/* Built with */}
+        <section className="l-container pb-sm">
+          <p className="tb mu" style={{ textAlign: "center" }}>Built with</p>
+        </section>
+        <section className="l-container l-framed pt-sm pb-sm">
+          <div className="l-rule" aria-hidden /><Dots />
+          <ul className="l-wall" aria-label="Built with">{["ElevenAgents", "Gemini vision", "Microsoft Presidio", "Supabase"].map((b) => <li key={b}>{b}</li>)}</ul>
+        </section>
+
+        {/* What it catches: duo */}
+        <section className="l-container l-framed px-d pt-xl pb-sm" id="catch">
+          <div className="l-rule" aria-hidden /><Dots />
+          <p className="l-eyebrow">What it catches</p>
+          <h2 className="l-display t5" style={{ maxWidth: "48rem" }}>Fine in the model, <span style={{ display: "table" }}>wrong in the documents</span></h2>
+        </section>
+        <section className="l-container l-framed px-d pb-xs"><Duo /></section>
+        <section className="l-container l-framed px-s pt-sm pb-sm">
+          <div className="l-grid">
+            {LP_CATCH.map((c) => (
+              <div key={c.label} className="l-c4"><div className="l-card">
+                <div className="l-card-in"><div className="l-card-col">
+                  <div className="l-ico"><c.icon size={22} strokeWidth={1.5} aria-hidden /></div>
+                  <div style={{ marginTop: "auto" }}>
+                    <h3><button onClick={() => go("teach")}>{c.label}<ArrowUpRight size={12} className="arr" aria-hidden /><span className="cover" aria-hidden /></button></h3>
+                    <p className="desc">{c.text}</p>
+                  </div>
+                </div></div>
+                <div className="l-card-ring" aria-hidden />
+              </div></div>))}
+          </div>
+        </section>
+
+        {/* Trust */}
+        <section className="l-container l-framed px-d pt-xl pb-sm" id="trust">
+          <div className="l-rule" aria-hidden /><Dots />
+          <div className="l-title">
+            <div className="head"><p className="l-eyebrow">Trust</p><h2 className="l-display t5" style={{ maxWidth: "32rem" }}>The partner decides <span style={{ display: "table" }}>what's kept</span></h2></div>
+            <div className="right-btn"><button className="l-btn l-s h11" onClick={() => go("trust")}>See trust and privacy</button></div>
+          </div>
+        </section>
+        <section className="l-container l-framed px-s pb-d">
+          <div className="l-snap" tabIndex={0} aria-label="Trust principles">
+            {[["circles", "Off the record at any time", "Say it or press a button. Only the time span is kept."],
+              ["lattice", "Redacted before storage", "Transcripts are redacted before they are saved. Synthetic data only until the readiness check passes."],
+              ["cone", "Only verified rules are taught", "Anything the partner hasn't confirmed never reaches the tutor."]].map(([k, t, d]) => (
+              <div key={t} className="l-card l-safe"><div className="l-card-in"><div className="l-card-col">
+                <LineArt kind={k} />
+                <h3>{t}</h3><p className="desc">{d}</p>
+              </div></div><div className="l-card-ring" aria-hidden /></div>))}
+          </div>
+        </section>
+
+        {/* CTA band */}
+        <div className="l-band">
+          <div className="l-container l-framed l-band-in">
+            <Dots c={["tl", "tr", "bl", "br"]} />
+            <p className="l-display t4">See it catch the $80,000 before the model does.</p>
+            <div className="btns">
+              <button className="l-btn l-s h11" onClick={fillDemo}>See the finished demo</button>
+              <button className="l-btn l-p h11" onClick={() => go("overview")}>Open the dashboard</button>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer className="l-container l-foot">
+        <div><button className="l-logo" onClick={() => window.scrollTo({ top: 0 })}><Mark />Apprentice</button>
+          <p className="txs mu" style={{ marginTop: 14, maxWidth: "18rem" }}>Demo data · fictional deals. Hack-Nation × ElevenLabs, 7th Global AI Hackathon, Challenge 01.</p></div>
+        <ul className="l-foot-groups">
+          {[["Capture", [["Overview", "overview"], ["Live session", "capture"]]],
+            ["Map", [["Debrief", "debrief"], ["Work Map", "map"], ["Agent export", "export"]]],
+            ["Teach", [["Coach", "teach"], ["Results", "results"], ["Trust and privacy", "trust"]]]].map(([h, ls]) => (
+            <li key={h}><h4>{h}</h4><ul>{ls.map(([l, p]) => <li key={l}><button onClick={() => go(p)}>{l}</button></li>)}</ul></li>))}
+        </ul>
+      </footer>
+
+      <div className="l-voice">
+        <button onClick={() => { try { const u = new SpeechSynthesisUtterance(LP_MOMENTS[0].q); window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); } catch { /* no speech */ } }}
+          aria-label="Hear a question the apprentice asked (browser voice preview)">
+          <span className="vorb" aria-hidden><span className="l-noise" /></span>Hear the apprentice
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// OS colour scheme as an external store: server and first client render agree (light), then it follows the OS.
+const DARK_QUERY = "(prefers-color-scheme: dark)";
+const subscribeSystemDark = (notify) => {
+  const m = window.matchMedia?.(DARK_QUERY);
+  m?.addEventListener?.("change", notify);
+  return () => m?.removeEventListener?.("change", notify);
+};
+const getSystemDark = () => !!window.matchMedia?.(DARK_QUERY).matches;
+const getSystemDarkServer = () => false;
+
+function FilesPage() {
+  const [deal, setDeal] = useState(DEAL.code);
+  const files = deal === DEAL.code ? ATLAS_FILES : BEACON_FILES;
+  const folders = [...new Set(files.map((file) => file.folder))];
+  const [openId, setOpenId] = useState(files[0].id);
+  const current = files.find((file) => file.id === openId) ?? files[0];
+  return (
+    <>
+      <PageHead title="Source files" lede={`Working set behind ${DEAL.code} and ${TEACH_DEAL.code}. Spreadsheets open as workbooks. Contracts open as the PDF page the analyst actually reads. The room still holds 1,240 files. These are the ones the demo uses.`} />
+      <div className="row" style={{ padding: "0 12px 12px" }}>
+        <div className="seg" role="tablist" aria-label="Deal">
+          {[DEAL.code, TEACH_DEAL.code].map((name) => (
+            <button key={name} role="tab" aria-selected={deal === name} onClick={() => { setDeal(name); setOpenId((name === DEAL.code ? ATLAS_FILES : BEACON_FILES)[0].id); }}>{name}</button>
+          ))}
+        </div>
+        <span className="t-sec">{files.length} files in this working set</span>
+      </div>
+      <div className="grid g-files">
+        <Card title="Data room" extra={<span className="t-sec">{current.folder}</span>}>
+          <div className="stack">
+            {folders.map((folder) => (
+              <div key={folder}>
+                <div className="t-cap" style={{ margin: "4px 0" }}>{folder}</div>
+                <div className="file-list">
+                  {files.filter((file) => file.folder === folder).map((file) => (
+                    <button key={file.id} type="button" aria-pressed={file.id === current.id} onClick={() => setOpenId(file.id)}>
+                      <span>
+                        <span className="strong" style={{ display: "block" }}>{file.name}</span>
+                        <span className="t-sec">{file.dateLabel} · {file.used}</span>
+                      </span>
+                      <span className={"file-ext " + file.kind}>{file.kind === "xlsx" ? "XLSX" : "PDF"}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card title={current.name} extra={<span className="t-sec">{current.used}</span>}>
+          <DocFace key={current.id} file={current} />
+          <p className="t-sec" style={{ marginTop: 8 }}>Synthetic demo files. Figures match the model inputs on Capture and Coach.</p>
+        </Card>
       </div>
     </>
   );
@@ -2088,6 +3059,7 @@ function NavList({ onPick }) {
   return (
     <nav aria-label="Main" className="stack x-tight">
       <NavItem {...itemProps} id="overview" label="Overview" top />
+      <NavItem {...itemProps} id="files" label="Source files" top />
       <div className="nav-label"><span className={"nav-num" + (sel.captureDone ? " done" : "")} aria-hidden>1</span>Capture{sel.captureDone && <span className="sr">, completed</span>}</div>
       <NavItem {...itemProps} id="capture" label="Live session" />
       <div className="nav-label"><span className={"nav-num" + (sel.signed ? " done" : "")} aria-hidden>2</span>Map{sel.signed && <span className="sr">, completed</span>}</div>
@@ -2104,10 +3076,10 @@ function NavList({ onPick }) {
 }
 
 function Sidebar() {
-  const { voice, setVoice, saveStatus } = useApp();
+  const { voice, setVoice, saveStatus, go } = useApp();
   return (
     <aside className="sidenav" aria-label="Sidebar">
-      <div className="brand"><span className="brand-mark" aria-hidden><ShieldCheck size={13} /></span>Apprentice</div>
+      <button className="brand" style={{ textAlign: "left", borderRadius: 8 }} onClick={() => go("landing")} aria-label="Apprentice home"><span className="brand-mark" aria-hidden><ShieldCheck size={13} /></span>Apprentice</button>
       <div className="people stack x-tight">
         <span className="t-meta">{EXPERT.name}</span><span className="t-sec">Expert, senior partner</span>
         <span className="t-meta" style={{ marginTop: 4 }}>{TRAINEE.name}</span><span className="t-sec">Learning, first deal</span>
@@ -2115,7 +3087,7 @@ function Sidebar() {
       <NavList />
       <div className="side-foot">
         <button className="btn compact" aria-pressed={voice} onClick={() => setVoice((v) => !v)}>{voice ? <Volume2 size={13} aria-hidden /> : <VolumeX size={13} aria-hidden />} Voice preview</button>
-        <span className="t-cap">Browser speech stands in for ElevenAgents.</span>
+        <span className="t-cap">Browser speech is the fallback; the live Interviewer is on Capture.</span>
         <span className="t-cap" role="status">{saveStatus}</span>
       </div>
     </aside>
@@ -2141,7 +3113,7 @@ function PhoneSheet({ onClose }) {
 }
 
 export default function App() {
-  const [page, setPage] = useState("overview");
+  const [page, setPage] = useState("landing");
   const [cap, setCap] = useState(initCap);
   const [gaps, setGaps] = useState({});
   const [claims, setClaims] = useState({});
@@ -2157,7 +3129,7 @@ export default function App() {
     theme: "system", quoteLang: "en", expertLang: "English", tutorLang: "English", retention: "90",
     redact: { PERSON: true, US_SSN: true, COMPENSATION: true, EMAIL_ADDRESS: true, PHONE_NUMBER: true, US_BANK_NUMBER: true },
   });
-  const [systemDark, setSystemDark] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+  const systemDark = useSyncExternalStore(subscribeSystemDark, getSystemDark, getSystemDarkServer);
   const [confirm, setConfirm] = useState(null);
   const [sheet, setSheet] = useState(false);
   const [live, setLive] = useState("");
@@ -2182,10 +3154,6 @@ export default function App() {
     return apprenticeSessionId.current;
   }, []);
 
-  useEffect(() => {
-    const m = window.matchMedia?.("(prefers-color-scheme: dark)"); if (!m) return;
-    const f = (e) => setSystemDark(e.matches); m.addEventListener?.("change", f); return () => m.removeEventListener?.("change", f);
-  }, []);
 
   const restoreState = useCallback((state) => {
     if (!state || state.version !== 1) return false;
@@ -2217,7 +3185,7 @@ export default function App() {
       } catch { /* ignore invalid local demo state */ }
 
       try {
-        const response = await fetch(`/api/apprentice/state?session_id=${encodeURIComponent(sessionId)}`);
+        const response = await sessionFetch(sessionId, `/api/apprentice/state?session_id=${encodeURIComponent(sessionId)}`);
         if (response.ok) {
           const payload = await response.json();
           if (!cancelled && payload.state) restored = restoreState(payload.state);
@@ -2253,7 +3221,8 @@ export default function App() {
   const persistedState = useMemo(() => ({
     version: 1,
     page,
-    cap: { ...cap, running: false },
+    // startedAt is a performance.now() reading and means nothing after a reload.
+    cap: { ...cap, running: false, live: cap.live ? { startedAt: null } : null, liveSig: null },
     gaps,
     claims,
     signed,
@@ -2275,7 +3244,7 @@ export default function App() {
     const timer = window.setTimeout(async () => {
       setSaveStatus("Saving…");
       try {
-        const response = await fetch(`/api/apprentice/state?session_id=${encodeURIComponent(sessionId)}`, {
+        const response = await sessionFetch(sessionId, `/api/apprentice/state?session_id=${encodeURIComponent(sessionId)}`, {
           method: "PUT",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ state: persistedState }),
@@ -2305,11 +3274,12 @@ export default function App() {
       ...GAPS.filter((gap) => gaps[gap.id] === "answered").map((gap) => ({ id: gap.id, step_id: gap.step, asked_t: quotes[gap.id]?.t ?? END_T, answer: quotes[gap.id]?.en })).filter((item) => item.answer),
     ];
     try {
-      const response = await fetch("/api/work-map", {
+      const sessionId = getApprenticeSessionId();
+      const response = await sessionFetch(sessionId, "/api/work-map", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          session_id: getApprenticeSessionId(),
+          session_id: sessionId,
           expert: EXPERT.name,
           events: cap.events.map((event) => event.raw).filter(Boolean),
           answers,
@@ -2335,7 +3305,7 @@ export default function App() {
     setTeach({ log: [], saved: {}, preds: {}, forms: {}, msgs: {} }); setMapStep(5); setPage("overview");
     const sessionId = getApprenticeSessionId();
     window.localStorage.removeItem(`apprentice-state:${sessionId}`);
-    void fetch(`/api/apprentice/state?session_id=${encodeURIComponent(sessionId)}`, { method: "DELETE" });
+    void sessionFetch(sessionId, `/api/apprentice/state?session_id=${encodeURIComponent(sessionId)}`, { method: "DELETE" });
   };
   const fillDemo = () => {
     setCap((c) => (c.done ? c : runToEnd(initCap())));
@@ -2349,10 +3319,19 @@ export default function App() {
     page, go, cap, setCap, gaps, setGaps, claims, setClaims, signed, setSigned, workMap, buildWorkMap, workMapStatus, struck, setStruck, quotes, addQuote,
     claimText, ruleSources, ruleEvidence, isVerified, sel, mapStep, setMapStep, teach, setTeach, settings, setSettings,
     voice, setVoice, fillDemo, resetAll, askReset, announce, saveStatus,
+    getApprenticeSessionId,
   };
-  const Page = { overview: OverviewPage, capture: CapturePage, debrief: DebriefPage, map: WorkMapPage, teach: TeachPage,
+  const Page = { overview: OverviewPage, files: FilesPage, capture: CapturePage, debrief: DebriefPage, map: WorkMapPage, teach: TeachPage,
     results: ResultsPage, export: ExportPage, trust: TrustPage }[page] || NotFoundPage;
   const dark = settings.theme === "dark" || (settings.theme === "system" && systemDark);
+
+  if (page === "landing") return (
+    <AppCtx.Provider value={ctx}>
+      <style>{LP_CSS}</style>
+      <Landing2 />
+      <div className="l-sr" role="status" aria-live="polite">{live}</div>
+    </AppCtx.Provider>
+  );
 
   return (
     <AppCtx.Provider value={ctx}>
@@ -2367,6 +3346,7 @@ export default function App() {
             <AppearanceMenu />
           </div>
           <div className="topbar">
+            <button className="pill-btn" style={{ minWidth: 44 }} aria-label="Home" onClick={() => go("landing")}><ShieldCheck size={16} aria-hidden /></button>
             <button className="pill-btn" style={{ minWidth: 44 }} aria-label="Open menu" aria-haspopup="dialog" onClick={() => setSheet(true)}><Menu size={18} aria-hidden /></button>
             <span className="brand" style={{ padding: 0 }}><span className="brand-mark" aria-hidden><ShieldCheck size={13} /></span>Apprentice</span>
             <span className="spacer" />
