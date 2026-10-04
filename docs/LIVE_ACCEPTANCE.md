@@ -86,11 +86,16 @@ It sends `fixtures/synthetic-pii-frame.jpg` (a fictional employee row with a
 name, SSN, salary, email and phone) to the redactor and prints a file path.
 **Open that file and check by eye.**
 
-- Pass: name, SSN, salary, email and phone are covered; the title and the
+- Pass: name, SSN, email and phone are covered; the title and the
   "Adjusted EBITDA" line are still readable.
-- Fail: any of the five is still legible. Stop. Do not enable vision. Report
-  which ones leaked. (Presidio's OCR can miss text; the answer then is to
-  tighten the redactor or keep vision off, not to proceed.)
+- **Known gap:** the default Presidio image redactor has no salary/compensation
+  recognizer, so `$142,000` is **not** covered. This was confirmed against the
+  real container on 2026-10-04. If salary must be hidden, add a custom
+  recognizer to the image redactor or mask that column before capture; do not
+  assume vision is safe for real compensation data.
+- Fail: the name, SSN, email or phone is still legible. Stop. Do not enable
+  vision. Report which ones leaked. (Presidio's OCR can miss text; the answer
+  then is to tighten the redactor or keep vision off, not to proceed.)
 
 Expected arm64 note: the redactor runs OCR (Tesseract) and can take a few
 seconds per frame. Record the time it prints.

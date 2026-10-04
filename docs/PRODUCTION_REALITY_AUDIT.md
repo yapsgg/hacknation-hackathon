@@ -30,7 +30,9 @@ not. The machine-readable version is `GET /api/system/readiness`.
 - A redaction-first server vision route now accepts changed frames, calls a
   dedicated image redactor, and sends only the returned image to Gemini. It
   validates the model response against the capture-event contract and retains
-  neither image.
+  neither image. Verified against the real Presidio container: names, SSNs,
+  emails and phone numbers are masked, but the default redactor has **no
+  salary/compensation recognizer**, so pay figures are not covered.
 - Session-scoped clients obtain a signed HttpOnly capability. Sensitive routes
   can enforce session binding and same-origin mutations with
   `APP_SECURITY_MODE=enforce`.
