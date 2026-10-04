@@ -11,7 +11,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test tests/phase23.test.ts tests/phase45.test.ts",
+    "test": "tsx --test tests/apprentice-state.test.ts tests/phase23.test.ts tests/phase45.test.ts",
     "validate:fixtures": "node scripts/validate-fixtures.mjs",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",

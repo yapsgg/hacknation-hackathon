@@ -1,0 +1,86 @@
+import assert from "node:assert/strict"
+import test from "node:test"
+
+import {
+  DELETE as deleteState,
+  GET as getState,
+  PUT as putState,
+} from "../app/api/apprentice/state/route"
+import {
+  APPRENTICE_GAPS,
+  APPRENTICE_RULES,
+  APPRENTICE_STEPS,
+  CANONICAL_WORK_MAP,
+} from "../lib/apprentice-demo"
+import { TUTOR_RULES } from "../lib/tutor"
+
+const sessionId = "11111111-1111-4111-8111-111111111111"
+const url = `http://localhost/api/apprentice/state?session_id=${sessionId}`
+const state = {
+  version: 1,
+  page: "map",
+  cap: { events: [], transcript: [], asked: [] },
+  gaps: { "gap-1": "answered" },
+  claims: { "acme-amendment-language": { status: "confirmed" } },
+  signed: true,
+  struck: {},
+  custom: {},
+  mapStep: 2,
+  teach: { log: [] },
+  settings: { theme: "system" },
+}
+
+test("Apprentice state round-trips through the memory fallback", async () => {
+  const saved = await putState(
+    new Request(url, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ state }),
+    })
+  )
+  assert.equal(saved.status, 200)
+  assert.equal((await saved.json()).store, "memory")
+
+  const loaded = await getState(new Request(url))
+  assert.equal(loaded.status, 200)
+  assert.deepEqual((await loaded.json()).state, state)
+
+  const removed = await deleteState(new Request(url, { method: "DELETE" }))
+  assert.equal(removed.status, 200)
+  const empty = await getState(new Request(url))
+  assert.equal((await empty.json()).state, null)
+})
+
+test("Apprentice state rejects invalid sessions and malformed state", async () => {
+  const badSession = await getState(
+    new Request("http://localhost/api/apprentice/state?session_id=not-a-uuid")
+  )
+  assert.equal(badSession.status, 422)
+
+  const badState = await putState(
+    new Request(url, {
+      method: "PUT",
+      body: JSON.stringify({ state: { version: 1, page: "unknown" } }),
+    })
+  )
+  assert.equal(badState.status, 422)
+})
+
+test("Apprentice UI model stays aligned with canonical Work Map and Tutor rules", () => {
+  assert.deepEqual(
+    APPRENTICE_STEPS.map(({ n, title, decision }) => ({ n, title, decision })),
+    CANONICAL_WORK_MAP.steps.map((step) => ({
+      n: step.id,
+      title: step.title,
+      decision: step.decision,
+    }))
+  )
+  assert.deepEqual(
+    APPRENTICE_RULES.map((rule) => rule.id),
+    TUTOR_RULES.map((rule) => rule.id)
+  )
+  assert.deepEqual(
+    APPRENTICE_GAPS.map((gap) => gap.id),
+    CANONICAL_WORK_MAP.open_gaps?.map((gap) => gap.id)
+  )
+})

@@ -296,8 +296,8 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 - [ ] Replace browser speech preview with the provisioned ElevenAgents Interviewer and Tutor sessions.
 - [ ] Connect redacted server-side vision events and the Phase 2 Question Governor to the Capture screen.
-- [ ] Persist the prototype's debrief, Work Map, and Teach state through the existing Supabase APIs instead of component-local demo state.
-- [ ] Reconcile the prototype's rule fixtures with the canonical seeded Work Map before making `/apprentice` the primary demo route.
+- [x] Persist the prototype's debrief, Work Map, and Teach state through `/api/apprentice/state`, with browser, memory, and Supabase storage. Completed in `0.0.16`.
+- [x] Reconcile the prototype's rule fixtures with the canonical seeded Work Map before making `/apprentice` the primary demo route. Completed in `0.0.16`.
 
 ---
 
@@ -308,6 +308,22 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 - **Fixture contract validation** — `npm run validate:fixtures` compiles both draft 2020-12 schemas and validates every mock capture event plus the seeded Work Map.
 - **Semantic fixture checks** — validation also rejects out-of-order event timestamps and duplicate Work Map step ids.
 - **GitHub CI gate** — pull requests and pushes to `testing` or `main` now validate fixtures, run all tests, lint, type-check, and produce a production build on Node 22.22.
+
+---
+
+## [0.0.16] — 2026-10-03
+
+### Done (canonical Apprentice model + durable UI state)
+
+- **One source of truth** — `/apprentice` now derives its seven steps, three gaps, capture events, expert evidence, and five Tutor rules from the canonical fixtures and `TUTOR_RULES` instead of a separate `R1`–`R9` scenario.
+- **Consistent demo** — the Capture screen, Work Map, Debrief, and Teach checks now use the same Acme, relocation, capex, and QoE facts as the validated Deal Desk.
+- **Durable UI state** — `/api/apprentice/state` validates and stores the complete integrated UI session, with local browser recovery, an in-process fallback, Supabase persistence, and reset/delete behavior.
+- **Private persistence migration** — `0003_apprentice_state.sql` adds a service-role-only state table; no anonymous database write policy is introduced.
+- **Regression coverage** — canonical mapping and state round-trip/validation tests increase the suite from 15 to 18 tests.
+
+### Still open for deployment
+
+- [ ] Apply `supabase/migrations/0003_apprentice_state.sql` to the live Supabase project to enable cross-device `/apprentice` restoration. Until then, the browser fallback remains functional.
 
 ---
 
