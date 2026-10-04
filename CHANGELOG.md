@@ -281,6 +281,26 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 ---
 
+## [0.0.14] — 2026-10-04
+
+### Done (`frontend_ui` integration)
+
+- **Friend's latest UI applied** — merged the three `frontend_ui` commits onto current `testing` without replacing the validated `/deal-desk` flow.
+- **New `/apprentice` experience** — added the full Capture → Debrief → Work Map → Teach → Results prototype and linked it from the landing page.
+- **React 19 cleanup** — repaired ref updates during render, effect dependencies, dynamically declared navigation components, JSX text lint failures, and unused callback parameters.
+- **Privacy boundary preserved** — removed the prototype's direct browser-to-Anthropic frame upload. Live screen sampling now stays local and emits only generic frame-change events until OCR/PII masking and the server-side vision path are ready.
+- **Acceptance pass** — loaded the completed demo, opened Debrief and Teach, and confirmed an unsafe `$190,000` Crestline ARR is blocked before the debt schedule with the expert's grounded reasoning.
+- **Validation** — all 15 tests, lint, typecheck, production build, and browser console checks pass.
+
+### Still open for the imported prototype
+
+- [ ] Replace browser speech preview with the provisioned ElevenAgents Interviewer and Tutor sessions.
+- [ ] Connect redacted server-side vision events and the Phase 2 Question Governor to the Capture screen.
+- [ ] Persist the prototype's debrief, Work Map, and Teach state through the existing Supabase APIs instead of component-local demo state.
+- [ ] Reconcile the prototype's rule fixtures with the canonical seeded Work Map before making `/apprentice` the primary demo route.
+
+---
+
 ## Next Steps (to finish the app)
 
 Ordered by the build priority in `ARCHITECTURE.md` §8. Each item lists concrete deliverables and a definition of done.
