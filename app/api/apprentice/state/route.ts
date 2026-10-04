@@ -2,6 +2,10 @@ import { NextResponse } from "next/server"
 
 import { recordAudit } from "@/lib/audit"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
+import {
+  authorizeSessionRequest,
+  sessionAuthorizationResponse,
+} from "@/lib/security/session-capability"
 
 export const runtime = "nodejs"
 
@@ -47,7 +51,11 @@ function hasBoundedArray(value: unknown, key: string, max: number): boolean {
 
 function validState(value: unknown): value is StoredState {
   if (!isRecord(value)) return false
-  if (value.version !== 1 || typeof value.page !== "string" || !PAGES.has(value.page)) {
+  if (
+    value.version !== 1 ||
+    typeof value.page !== "string" ||
+    !PAGES.has(value.page)
+  ) {
     return false
   }
   if (
@@ -95,6 +103,10 @@ export async function GET(request: Request) {
   if (!sessionId) {
     return NextResponse.json({ error: "session_id required" }, { status: 422 })
   }
+  const unauthorized = sessionAuthorizationResponse(
+    authorizeSessionRequest(request, sessionId)
+  )
+  if (unauthorized) return unauthorized
 
   try {
     const supabase = await ensureSession(sessionId)
@@ -132,10 +144,17 @@ export async function PUT(request: Request) {
   if (!sessionId) {
     return NextResponse.json({ error: "session_id required" }, { status: 422 })
   }
+  const unauthorized = sessionAuthorizationResponse(
+    authorizeSessionRequest(request, sessionId)
+  )
+  if (unauthorized) return unauthorized
 
   const raw = await request.text()
   if (Buffer.byteLength(raw, "utf8") > MAX_BODY_BYTES) {
-    return NextResponse.json({ error: "State payload too large" }, { status: 413 })
+    return NextResponse.json(
+      { error: "State payload too large" },
+      { status: 413 }
+    )
   }
 
   let body: unknown
@@ -146,7 +165,10 @@ export async function PUT(request: Request) {
   }
   const state = isRecord(body) ? body.state : null
   if (!validState(state)) {
-    return NextResponse.json({ error: "Invalid Apprentice state" }, { status: 422 })
+    return NextResponse.json(
+      { error: "Invalid Apprentice state" },
+      { status: 422 }
+    )
   }
 
   try {
@@ -191,6 +213,10 @@ export async function DELETE(request: Request) {
   if (!sessionId) {
     return NextResponse.json({ error: "session_id required" }, { status: 422 })
   }
+  const unauthorized = sessionAuthorizationResponse(
+    authorizeSessionRequest(request, sessionId)
+  )
+  if (unauthorized) return unauthorized
 
   try {
     const supabase = await ensureSession(sessionId)

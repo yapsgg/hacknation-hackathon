@@ -20,26 +20,36 @@ not. The machine-readable version is `GET /api/system/readiness`.
 - Transcripts pass through Presidio when it is configured. Presidio failure
   blocks storage instead of falling back after a live-service error.
 - Browser screen sharing and local frame-difference sampling work.
+- A redaction-first server vision route now accepts changed frames, calls a
+  dedicated image redactor, and sends only the returned image to Gemini. It
+  validates the model response against the capture-event contract and retains
+  neither image.
+- Session-scoped clients obtain a signed HttpOnly capability. Sensitive routes
+  can enforce session binding and same-origin mutations with
+  `APP_SECURITY_MODE=enforce`.
+- High-cost endpoints have bounded single-instance rate limits.
 
 ## What is still demo or incomplete
 
 - `/apprentice` still uses deterministic captured events and activity signals.
   Browser speech remains available only as the no-key fallback.
-- Shared-screen frames are not converted into structured events by a server-side
-  vision model. The current live preview records only that a frame changed.
+- Vision remains disabled until an image-redactor URL and vision key are
+  configured. Local Presidio image redaction can run without cloud credentials.
 - The Work Map compiler is deterministic and starts from the seeded workflow
   shape. It replaces evidence when captured events and expert answers exist.
-- The browser does not subscribe to the existing Supabase Realtime publication.
+- A browser Realtime hook exists but remains disabled until Supabase Auth and
+  the secure ownership-policy migration are active.
 - In-memory and browser fallbacks are intentionally non-durable.
 - No webhook endpoints exist. The ElevenLabs tools are browser client tools, so
   webhooks are not required for the current architecture.
 
 ## Security boundary
 
-The app has no user authentication or per-session authorization. API routes use
-the Supabase service role after validating payload shape, but possession of a
-session UUID is currently enough to read or mutate that session through the
-Next.js API. There is also no application-level rate limiter.
+The app now has signed per-session capability authorization, origin checks, and
+single-instance rate limiting. This is not human user authentication. The
+original Supabase migration's anonymous Realtime policies are unsafe for real
+data; migration `0004_session_security.sql` removes them, but requires Supabase
+Auth and `sessions.owner_id` assignment first.
 
 Therefore:
 
@@ -50,14 +60,10 @@ Therefore:
 
 ## Remediation order
 
-1. Add a privacy-reviewed server vision extractor that emits the event schema;
-   never send raw frames directly from the browser to a model provider.
-2. Add user authentication plus session membership/ownership checks to every
-   route before allowing sensitive data.
-3. Replace global anon Realtime read policies with authenticated, session-scoped
-   policies, then add browser subscriptions.
-4. Add per-user/IP rate limiting and request-origin/CSRF protections.
-5. Host Presidio, run credentialed Supabase deletion tests, and complete the
+1. Add Supabase human authentication and persist session ownership.
+2. Apply and verify migration `0004_session_security.sql`, then enable Realtime.
+3. Replace the local limiter with a shared production limiter.
+4. Host Presidio, run credentialed Supabase deletion tests, and complete the
    microphone/screen-share/off-record browser acceptance run.
 
-Until steps 2, 3, and 6 pass, `sensitive_data_ready` must remain `false`.
+Until those steps pass, `sensitive_data_ready` must remain `false`.

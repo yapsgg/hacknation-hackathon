@@ -25,6 +25,7 @@ import { useDealDesk } from "@/components/deal-desk/session-provider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { elapsedSeconds, getSessionId } from "@/lib/event-bus"
+import { sessionFetch } from "@/lib/session-client"
 import { getExpertMoment, lookupGuardrails, TUTOR_RULES } from "@/lib/tutor"
 import type { MasteryState } from "@/lib/types"
 import { cn } from "cn"
@@ -55,11 +56,12 @@ export function TutorPanel() {
   const onMessage = React.useCallback(
     (message: MessagePayload) => {
       if (offRecord || !message.message.trim()) return
-      void fetch("/api/privacy/transcripts", {
+      const sessionId = getSessionId()
+      void sessionFetch(sessionId, "/api/privacy/transcripts", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          session_id: getSessionId(),
+          session_id: sessionId,
           t: Number(elapsedSeconds().toFixed(2)),
           role: message.role === "agent" ? "agent" : "user",
           text: message.message,
@@ -109,38 +111,39 @@ function TutorPanelContent() {
   useConversationClientTool("get_screen_state", () =>
     JSON.stringify(getScreenState())
   )
-  useConversationClientTool(
-    "block_commit",
-    (parameters) => {
-      const reason = typeof parameters.reason === "string" ? parameters.reason : "Commit blocked."
-      const step_id = typeof parameters.step_id === "number" ? parameters.step_id : 7
-      const ruleId = TUTOR_RULES.find((rule) => rule.stepId === step_id)?.id ?? null
-      blockCommit(reason, step_id, ruleId)
-      return JSON.stringify({ blocked: true, overlay_id: `block-${Date.now()}` })
-    }
-  )
-  useConversationClientTool(
-    "replay_moment",
-    (parameters) => {
-      const step_id = typeof parameters.step_id === "number" ? parameters.step_id : 7
-      const moment = getExpertMoment(step_id)
-      replayMoment(step_id)
-      return JSON.stringify({ clip: moment?.clip ?? null, frame: moment?.frame ?? null })
-    }
-  )
-  useConversationClientTool(
-    "update_mastery",
-    (parameters) => {
-      const rule_id = typeof parameters.rule_id === "string" ? parameters.rule_id : ""
-      const state =
-        typeof parameters.state === "string" &&
-        validMasteryStates.has(parameters.state as MasteryState)
-          ? (parameters.state as MasteryState)
-          : "unseen"
-      updateMastery(rule_id, state)
-      return JSON.stringify({ ok: true })
-    }
-  )
+  useConversationClientTool("block_commit", (parameters) => {
+    const reason =
+      typeof parameters.reason === "string"
+        ? parameters.reason
+        : "Commit blocked."
+    const step_id =
+      typeof parameters.step_id === "number" ? parameters.step_id : 7
+    const ruleId =
+      TUTOR_RULES.find((rule) => rule.stepId === step_id)?.id ?? null
+    blockCommit(reason, step_id, ruleId)
+    return JSON.stringify({ blocked: true, overlay_id: `block-${Date.now()}` })
+  })
+  useConversationClientTool("replay_moment", (parameters) => {
+    const step_id =
+      typeof parameters.step_id === "number" ? parameters.step_id : 7
+    const moment = getExpertMoment(step_id)
+    replayMoment(step_id)
+    return JSON.stringify({
+      clip: moment?.clip ?? null,
+      frame: moment?.frame ?? null,
+    })
+  })
+  useConversationClientTool("update_mastery", (parameters) => {
+    const rule_id =
+      typeof parameters.rule_id === "string" ? parameters.rule_id : ""
+    const state =
+      typeof parameters.state === "string" &&
+      validMasteryStates.has(parameters.state as MasteryState)
+        ? (parameters.state as MasteryState)
+        : "unseen"
+    updateMastery(rule_id, state)
+    return JSON.stringify({ ok: true })
+  })
   useConversationClientTool("lookup_guardrail", (parameters) => {
     const topic = typeof parameters.topic === "string" ? parameters.topic : ""
     return JSON.stringify({
@@ -152,21 +155,16 @@ function TutorPanelContent() {
       })),
     })
   })
-  useConversationClientTool(
-    "get_expert_moment",
-    (parameters) => {
-      const step_id = typeof parameters.step_id === "number" ? parameters.step_id : 7
-      return JSON.stringify(getExpertMoment(step_id))
-    }
-  )
-  useConversationClientTool(
-    "set_off_record",
-    (parameters) => {
-      const active = parameters.active === true
-      setOffRecord(active)
-      return JSON.stringify({ ok: true, off_record: active })
-    }
-  )
+  useConversationClientTool("get_expert_moment", (parameters) => {
+    const step_id =
+      typeof parameters.step_id === "number" ? parameters.step_id : 7
+    return JSON.stringify(getExpertMoment(step_id))
+  })
+  useConversationClientTool("set_off_record", (parameters) => {
+    const active = parameters.active === true
+    setOffRecord(active)
+    return JSON.stringify({ ok: true, off_record: active })
+  })
 
   const startTutor = async () => {
     setStartError(null)
@@ -176,7 +174,10 @@ function TutorPanelContent() {
     }
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true })
-      const response = await fetch("/api/tutor/session", { method: "POST" })
+      const sessionId = getSessionId()
+      const response = await sessionFetch(sessionId, "/api/tutor/session", {
+        method: "POST",
+      })
       const config = (await response.json()) as {
         signed_url?: string
         agent_id?: string
@@ -191,19 +192,24 @@ function TutorPanelContent() {
         )
       }
       const dynamicVariables = {
-        session_id: getSessionId(),
+        session_id: sessionId,
         case_id: "customer-3",
         mastery_state: JSON.stringify(mastery),
       }
       if (config.signed_url) {
-        controls.startSession({ signedUrl: config.signed_url, dynamicVariables })
+        controls.startSession({
+          signedUrl: config.signed_url,
+          dynamicVariables,
+        })
       } else if (config.agent_id) {
         controls.startSession({ agentId: config.agent_id, dynamicVariables })
       } else {
         throw new Error("Tutor session configuration is incomplete.")
       }
     } catch (error) {
-      setStartError(error instanceof Error ? error.message : "Tutor failed to start.")
+      setStartError(
+        error instanceof Error ? error.message : "Tutor failed to start."
+      )
     }
   }
 
@@ -244,7 +250,11 @@ function TutorPanelContent() {
               className="h-7 flex-1 text-[10px]"
               onClick={() => setMuted(!isMuted)}
             >
-              {isMuted ? <MicOff className="size-3" /> : <Mic className="size-3" />}
+              {isMuted ? (
+                <MicOff className="size-3" />
+              ) : (
+                <Mic className="size-3" />
+              )}
               {isMuted ? "Unmute" : voiceLabel}
             </Button>
             <Button
@@ -293,7 +303,9 @@ function TutorPanelContent() {
           <div className="flex items-start gap-2">
             <CircleAlert className="mt-0.5 size-3.5 shrink-0 text-destructive" />
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-semibold text-destructive">Commit blocked</p>
+              <p className="text-[11px] font-semibold text-destructive">
+                Commit blocked
+              </p>
               <p className="mt-1 text-[10px] leading-relaxed text-destructive/90">
                 {activeBlock.reason}
               </p>
@@ -302,7 +314,9 @@ function TutorPanelContent() {
                   size="sm"
                   variant="outline"
                   className="h-6 px-2 text-[10px]"
-                  onClick={() => replayMoment(activeBlock.stepId, activeBlock.ruleId)}
+                  onClick={() =>
+                    replayMoment(activeBlock.stepId, activeBlock.ruleId)
+                  }
                 >
                   <Play className="size-3" /> Replay expert
                 </Button>
@@ -323,7 +337,9 @@ function TutorPanelContent() {
       {activeReplay ? (
         <div className="mt-2 rounded-md border border-blue-500/30 bg-blue-500/5 p-2.5">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] font-semibold">Expert moment: {activeReplay.title}</p>
+            <p className="text-[11px] font-semibold">
+              Expert moment: {activeReplay.title}
+            </p>
             <Button
               variant="ghost"
               size="sm"
@@ -336,11 +352,12 @@ function TutorPanelContent() {
           <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
             {activeReplay.decision}
           </p>
-          <blockquote className="mt-1 border-l-2 border-blue-500/50 pl-2 text-[10px] italic text-muted-foreground">
+          <blockquote className="mt-1 border-l-2 border-blue-500/50 pl-2 text-[10px] text-muted-foreground italic">
             {activeReplay.reasonQuote}
           </blockquote>
           <p className="mt-1 font-mono text-[9px] text-muted-foreground">
-            {activeReplay.frame} · clip {activeReplay.clip[0]}–{activeReplay.clip[1]}s
+            {activeReplay.frame} · clip {activeReplay.clip[0]}–
+            {activeReplay.clip[1]}s
           </p>
         </div>
       ) : null}

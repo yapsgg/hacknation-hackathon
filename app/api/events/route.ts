@@ -2,6 +2,11 @@ import { NextResponse } from "next/server"
 
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import type { CaptureEvent } from "@/lib/types"
+import { checkRateLimit, rateLimitResponse } from "@/lib/security/rate-limit"
+import {
+  authorizeSessionRequest,
+  sessionAuthorizationResponse,
+} from "@/lib/security/session-capability"
 
 export const runtime = "nodejs"
 
@@ -23,7 +28,8 @@ export function purgeMemoryEvents(
 ): number {
   const before = memory.length
   const retained = memory.filter(
-    (row) => row.session_id !== sessionId || row.event.t < from || row.event.t > to
+    (row) =>
+      row.session_id !== sessionId || row.event.t < from || row.event.t > to
   )
   memory.splice(0, memory.length, ...retained)
   return before - memory.length
@@ -51,6 +57,15 @@ function isValidEvent(value: unknown): value is CaptureEvent {
 }
 
 export async function POST(request: Request) {
+  const limited = rateLimitResponse(
+    checkRateLimit(request, {
+      namespace: "event-write",
+      limit: 180,
+      windowMs: 60_000,
+    })
+  )
+  if (limited) return limited
+
   let body: unknown
   try {
     body = await request.json()
@@ -68,6 +83,11 @@ export async function POST(request: Request) {
   if (!isValidEvent(event)) {
     return NextResponse.json({ error: "Invalid event" }, { status: 422 })
   }
+
+  const unauthorized = sessionAuthorizationResponse(
+    authorizeSessionRequest(request, session_id)
+  )
+  if (unauthorized) return unauthorized
 
   const supabase = getSupabaseAdmin()
   if (!supabase) {
@@ -107,23 +127,28 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   const sessionId = new URL(request.url).searchParams.get("session_id")
+  if (!sessionId || !UUID_RE.test(sessionId)) {
+    return NextResponse.json({ error: "session_id required" }, { status: 422 })
+  }
+  const unauthorized = sessionAuthorizationResponse(
+    authorizeSessionRequest(request, sessionId)
+  )
+  if (unauthorized) return unauthorized
   const supabase = getSupabaseAdmin()
 
   if (!supabase) {
-    const rows = memory.filter((m) => !sessionId || m.session_id === sessionId)
+    const rows = memory.filter((m) => m.session_id === sessionId)
     return NextResponse.json({
       store: "memory",
       events: rows.map((m) => m.event),
     })
   }
 
-  if (!sessionId || !UUID_RE.test(sessionId)) {
-    return NextResponse.json({ error: "session_id required" }, { status: 422 })
-  }
-
   const { data, error } = await supabase
     .from("events")
-    .select("t,type,object,field,from_val,to_val,evidence_frame,salient_text,confidence,source")
+    .select(
+      "t,type,object,field,from_val,to_val,evidence_frame,salient_text,confidence,source"
+    )
     .eq("session_id", sessionId)
     .order("t", { ascending: true })
   if (error) {

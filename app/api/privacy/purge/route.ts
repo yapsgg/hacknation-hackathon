@@ -5,6 +5,10 @@ import { purgeMemoryTranscripts } from "@/app/api/privacy/transcripts/route"
 import { recordAudit } from "@/lib/audit"
 import { purgeMemoryFrames, purgeSupabaseFrames } from "@/lib/frame-storage"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
+import {
+  authorizeSessionRequest,
+  sessionAuthorizationResponse,
+} from "@/lib/security/session-capability"
 
 export const runtime = "nodejs"
 
@@ -34,6 +38,11 @@ export async function POST(request: Request) {
   ) {
     return NextResponse.json({ error: "Invalid purge window" }, { status: 422 })
   }
+
+  const unauthorized = sessionAuthorizationResponse(
+    authorizeSessionRequest(request, session_id)
+  )
+  if (unauthorized) return unauthorized
 
   const supabase = getSupabaseAdmin()
   if (!supabase) {
