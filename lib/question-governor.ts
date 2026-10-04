@@ -36,13 +36,15 @@ export type GovernorDecision =
       score: number
     }
 
-const MIN_VOICE_SILENCE = 1.8
-const MIN_INTERACTION_IDLE = 1.5
-const QUESTION_COOLDOWN = 45
-const QUESTION_WINDOW = 600
-const MAX_QUESTIONS_PER_WINDOW = 5
-const TRIGGER_MAX_AGE = 8
-const FORCED_GUARDRAIL_AT = 360
+export const QUESTION_GOVERNOR_POLICY = {
+  minVoiceSilence: 1.8,
+  minInteractionIdle: 1.5,
+  questionCooldown: 45,
+  questionWindow: 600,
+  maxQuestionsPerWindow: 5,
+  triggerMaxAge: 8,
+  forcedGuardrailAt: 360,
+} as const
 
 function score(candidate: QuestionCandidate): number {
   return (
@@ -55,10 +57,10 @@ export function evaluateQuestionSlot(
   signals: GovernorSignals,
   candidates: QuestionCandidate[]
 ): GovernorDecision {
-  if (signals.voiceSilenceFor < MIN_VOICE_SILENCE) {
+  if (signals.voiceSilenceFor < QUESTION_GOVERNOR_POLICY.minVoiceSilence) {
     return { granted: false, reason: "expert_speaking" }
   }
-  if (signals.interactionIdleFor < MIN_INTERACTION_IDLE) {
+  if (signals.interactionIdleFor < QUESTION_GOVERNOR_POLICY.minInteractionIdle) {
     return { granted: false, reason: "expert_active" }
   }
   if (signals.docScrolling) {
@@ -67,22 +69,22 @@ export function evaluateQuestionSlot(
   if (
     signals.lastQuestionAt !== null &&
     signals.lastQuestionAt !== undefined &&
-    signals.now - signals.lastQuestionAt < QUESTION_COOLDOWN
+    signals.now - signals.lastQuestionAt < QUESTION_GOVERNOR_POLICY.questionCooldown
   ) {
     return { granted: false, reason: "cooldown" }
   }
   const recentQuestions = signals.questionTimes.filter(
-    (askedAt) => askedAt >= signals.now - QUESTION_WINDOW
+    (askedAt) => askedAt >= signals.now - QUESTION_GOVERNOR_POLICY.questionWindow
   )
-  if (recentQuestions.length >= MAX_QUESTIONS_PER_WINDOW) {
+  if (recentQuestions.length >= QUESTION_GOVERNOR_POLICY.maxQuestionsPerWindow) {
     return { granted: false, reason: "question_budget" }
   }
-  if (!signals.trigger || signals.now - signals.trigger.at > TRIGGER_MAX_AGE) {
+  if (!signals.trigger || signals.now - signals.trigger.at > QUESTION_GOVERNOR_POLICY.triggerMaxAge) {
     return { granted: false, reason: "no_recent_trigger" }
   }
 
   const forceGuardrail =
-    signals.sessionElapsed >= FORCED_GUARDRAIL_AT &&
+    signals.sessionElapsed >= QUESTION_GOVERNOR_POLICY.forcedGuardrailAt &&
     !signals.guardrailQuestionAsked
   const eligible = candidates.filter(
     (candidate) =>

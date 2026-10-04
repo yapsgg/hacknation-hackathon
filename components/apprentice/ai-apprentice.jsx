@@ -15,13 +15,13 @@ import {
   APPRENTICE_EXPERT,
   APPRENTICE_GAPS,
   APPRENTICE_LIVE_BUDGET,
-  APPRENTICE_PAUSE_S,
   APPRENTICE_QUOTES,
   APPRENTICE_RULE,
   APPRENTICE_RULES,
   APPRENTICE_SCRIPT,
   APPRENTICE_STEPS,
 } from "@/lib/apprentice-demo";
+import { evaluateQuestionSlot, QUESTION_GOVERNOR_POLICY } from "@/lib/question-governor";
 
 /* ------------------------------------------------------------------
    The AI Apprentice: starter UI, rebuilt on the Mono design practices.
@@ -465,7 +465,6 @@ const STEPS = APPRENTICE_STEPS;
 const GAPS = APPRENTICE_GAPS;
 
 /* --------------------- capture script (demo session) ------------------- */
-const PAUSE_S = APPRENTICE_PAUSE_S;
 const END_T = APPRENTICE_END_T;
 const LIVE_BUDGET = APPRENTICE_LIVE_BUDGET;
 
@@ -504,12 +503,30 @@ const fmt = (s) => {
   const v = Math.max(0, Math.floor(s));
   return `${String(Math.floor(v / 60)).padStart(2, "0")}:${String(v % 60).padStart(2, "0")}`;
 };
+const GOVERNOR_REASON = {
+  slot_granted: "slot granted",
+  expert_speaking: "expert speaking",
+  expert_active: "keyboard or pointer active",
+  document_scrolling: "document scrolling",
+  cooldown: "45-second cooldown",
+  question_budget: "live question budget reached",
+  no_recent_trigger: "waiting for a recent trigger",
+  guardrail_candidate_required: "guardrail question required",
+  no_useful_question: "no useful anchored question",
+};
+const GOVERNOR_TRIGGER = {
+  value_committed: "value committed",
+  doc_closed: "document closed",
+  amendment_opened: "amendment opened",
+  addback_accepted: "add-back accepted",
+};
 /* ======================= capture engine ===============================
    Deterministic and pure: stepCap(state, dt) -> state.
    Rules enforced here:
    - every screen change becomes a timestamped event
    - a question is asked only if (a) a relevant event queued it and
-     (b) nothing is active (typing, reading, talking) for PAUSE_S seconds
+     (b) the shared Governor grants a slot from voice, interaction, scroll,
+         cooldown, budget and recent-trigger signals
    - off the record: no events, no transcript, no questions
    In production, replace SCRIPT with vision-model events and ACTIVITY
    with keyboard/mouse activity + Scribe v2 Realtime voice activity.
@@ -518,20 +535,34 @@ function initCap() {
   return {
     t: 0, running: false, speed: 8, ei: 0, events: [], transcript: [], asked: [], deferred: [], dropped: [],
     queue: [], dyn: [], pending: null, askingUntil: 0, agent: "idle", agentLine: "", holdReason: "",
+    governor: { reason: "Waiting for a trigger", trigger: null, score: null },
     off: false, offSegs: [], suppressed: 0, redacted: 0, done: false, interruptions: 0,
   };
 }
 
 function signalsAt(cap, t) {
   const s = { typing: false, reading: false, speaking: false, agent: false };
-  let lastEnd = 0;
+  let lastEnd = 0; let lastVoiceEnd = 0; let lastInteractionEnd = 0;
   const all = [...ACTIVITY, ...cap.dyn.map((d) => ({ ...d, type: "speaking" }))];
   for (const a of all) {
-    if (t >= a.from && t < a.to) { s[a.type] = true; lastEnd = t; }
-    else if (a.to <= t) lastEnd = Math.max(lastEnd, a.to);
+    if (t >= a.from && t < a.to) {
+      s[a.type] = true; lastEnd = t;
+      if (a.type === "speaking") lastVoiceEnd = t;
+      if (a.type === "typing" || a.type === "reading") lastInteractionEnd = t;
+    } else if (a.to <= t) {
+      lastEnd = Math.max(lastEnd, a.to);
+      if (a.type === "speaking") lastVoiceEnd = Math.max(lastVoiceEnd, a.to);
+      if (a.type === "typing" || a.type === "reading") lastInteractionEnd = Math.max(lastInteractionEnd, a.to);
+    }
   }
   if (t < cap.askingUntil) { s.agent = true; lastEnd = t; }
-  return { ...s, quiet: Math.max(0, t - lastEnd), active: s.typing || s.reading || s.speaking || s.agent };
+  return {
+    ...s,
+    quiet: Math.max(0, t - lastEnd),
+    voiceSilenceFor: Math.max(0, t - lastVoiceEnd),
+    interactionIdleFor: Math.max(0, t - lastInteractionEnd),
+    active: s.typing || s.reading || s.speaking || s.agent,
+  };
 }
 
 function stepCap(prev, dt) {
@@ -573,18 +604,44 @@ function stepCap(prev, dt) {
   else if (t < c.askingUntil) c.agent = "asking";
   else if (c.pending) c.agent = "listening";
   else if (c.queue.length) {
-    if (sig.typing || sig.reading || sig.speaking) {
-      c.agent = "holding";
-      c.holdReason = sig.typing ? "typing" : sig.speaking ? "talking" : "reading";
-    } else if (sig.quiet >= PAUSE_S && c.asked.length < LIVE_BUDGET) {
-      c.queue.sort((a, b) => b.score - a.score);
-      const k = c.queue.shift();
+    const triggerCandidate = c.queue.reduce((latest, item) => item.eventT > latest.eventT ? item : latest);
+    const decision = evaluateQuestionSlot({
+      now: t,
+      sessionElapsed: t,
+      voiceSilenceFor: sig.voiceSilenceFor,
+      interactionIdleFor: sig.interactionIdleFor,
+      docScrolling: sig.reading,
+      lastQuestionAt: c.asked.at(-1)?.t ?? null,
+      questionTimes: c.asked.map((item) => item.t),
+      guardrailQuestionAsked: c.asked.some((item) => item.type === "guardrail"),
+      trigger: { type: triggerCandidate.trigger, at: triggerCandidate.eventT },
+    }, c.queue.map((item) => ({
+      id: item.id,
+      text: item.q,
+      anchor: item.anchor,
+      kind: item.type === "guardrail" ? "guardrail" : "decision_reason",
+      revealValue: item.revealValue,
+      onScreenAnchor: item.onScreenAnchor,
+      novelty: item.novelty,
+      screenAnswerablePenalty: item.screenAnswerablePenalty,
+    })));
+    c.governor = {
+      reason: decision.reason,
+      trigger: triggerCandidate.trigger,
+      score: decision.granted ? decision.score : null,
+    };
+    if (decision.granted) {
+      const selected = c.queue.findIndex((item) => item.id === decision.candidate.id);
+      const [k] = c.queue.splice(selected, 1);
       if (sig.active) c.interruptions++; // never happens by construction; kept as a metric
-      c.asked.push({ id: k.id, q: k.q, type: k.type, t, eventT: k.eventT, eventText: k.eventText, quiet: sig.quiet, alts: k.alts });
+      c.asked.push({ id: k.id, q: k.q, type: k.type, t, eventT: k.eventT, eventText: k.eventText, quiet: sig.quiet, voiceSilenceFor: sig.voiceSilenceFor, interactionIdleFor: sig.interactionIdleFor, alts: k.alts, governorScore: decision.score, trigger: k.trigger });
       c.transcript.push({ t, who: "agent", text: k.q });
       c.agent = "asking"; c.agentLine = k.q; c.askingUntil = t + 2.5;
       c.dyn.push({ from: t + 2.5, to: t + 8 });
       c.pending = { at: t + 8, quote: k.id };
+    } else if (["expert_speaking", "expert_active", "document_scrolling"].includes(decision.reason)) {
+      c.agent = "holding";
+      c.holdReason = decision.reason === "expert_speaking" ? "talking" : decision.reason === "document_scrolling" ? "reading" : "typing";
     } else c.agent = "waiting";
   } else c.agent = "listening";
 
@@ -1054,7 +1111,7 @@ function OverviewPage() {
   ];
   const test = [
     { name: "When to ask", page: "capture", ok: S.asked >= 3 && S.interruptions === 0,
-      how: `Speaks after ${PAUSE_S} s of quiet with a screen event waiting; typing, reading or talking hold it.`,
+      how: `Requires ${QUESTION_GOVERNOR_POLICY.minVoiceSilence} s of voice silence, ${QUESTION_GOVERNOR_POLICY.minInteractionIdle} s of interaction idle, no scrolling and a recent trigger.`,
       ev: `${S.asked} asked at pauses, ${S.interruptions} interruptions` },
     { name: "What to ask", page: "capture", ok: S.guardQs >= 1,
       how: "Drops any candidate question the screen already answers.",
@@ -1171,7 +1228,14 @@ function CapturePage() {
   function stopShare() { stream?.getTracks().forEach((tr) => tr.stop()); setStream(null); setShareMsg(null); }
 
   const sig = signalsAt(cap, cap.t);
-  const pause = !sig.active && sig.quiet >= PAUSE_S && !cap.off && !cap.done && cap.t > 0;
+  const pause = sig.voiceSilenceFor >= QUESTION_GOVERNOR_POLICY.minVoiceSilence &&
+    sig.interactionIdleFor >= QUESTION_GOVERNOR_POLICY.minInteractionIdle &&
+    !sig.reading && !sig.agent && !cap.off && !cap.done && cap.t > 0;
+  const gateProgress = Math.min(
+    1,
+    sig.voiceSilenceFor / QUESTION_GOVERNOR_POLICY.minVoiceSilence,
+    sig.interactionIdleFor / QUESTION_GOVERNOR_POLICY.minInteractionIdle
+  );
   const state = {
     idle: [Bot, "Ready"], listening: [Mic, cap.pending ? `Listening to ${EXPERT.first}'s answer` : "Listening"],
     waiting: [Clock, "Waiting for a natural pause"], asking: [MessageSquare, "Asking"],
@@ -1221,10 +1285,10 @@ function CapturePage() {
                 <div className={"signal" + (sig.reading ? " on" : "")}><span className="row strong"><BookOpen size={13} aria-hidden /> Reading</span><span className="t-sec">{sig.reading ? "Scrolling or reading" : "No reading detected"}</span></div>
                 <div className={"signal" + (sig.speaking || sig.agent ? " on" : "")}><span className="row strong"><Mic size={13} aria-hidden /> Talking</span><span className="t-sec">{sig.agent ? "Apprentice speaking" : sig.speaking ? `${EXPERT.first} is talking` : "Silence"}</span></div>
                 <div className={"signal" + (pause ? " pause" : "")}><span className="strong">{pause ? "Natural pause" : "Quiet time"}</span>
-                  <span className="t-meta">{(sig.active || cap.t === 0 ? 0 : sig.quiet).toFixed(1)} s of {PAUSE_S} s</span>
-                  <div className="meter-bar"><i style={{ width: `${Math.min(100, ((sig.active ? 0 : sig.quiet) / 3) * 100)}%` }} /><s style={{ left: `${(PAUSE_S / 3) * 100}%` }} /></div></div>
+                  <span className="t-meta">voice {sig.voiceSilenceFor.toFixed(1)}/{QUESTION_GOVERNOR_POLICY.minVoiceSilence} s · input {sig.interactionIdleFor.toFixed(1)}/{QUESTION_GOVERNOR_POLICY.minInteractionIdle} s</span>
+                  <div className="meter-bar"><i style={{ width: `${gateProgress * 100}%` }} /><s style={{ left: "100%" }} /></div></div>
               </div>
-              <p className="t-sec">Signals come from keyboard and mouse activity, the vision model (scrolling, reading) and voice activity from Scribe v2 Realtime.</p>
+              <p className="t-sec">This no-key demo feeds deterministic keyboard, document-scroll and voice-silence signals into the production Question Governor. Live Scribe and vision signals can replace the seeded stream without changing the gate.</p>
             </div>
           </Card>
         </div>
@@ -1237,6 +1301,7 @@ function CapturePage() {
             {cap.agent === "done" && <p className="agent-line">{cap.agentLine}</p>}
             {cap.agent === "off" && <p className="t-sec" style={{ marginTop: 8 }}>Nothing is heard, seen or stored until {EXPERT.first} goes back on the record. Only the time span is kept.</p>}
             {(cap.agent === "holding" || cap.agent === "waiting") && cap.queue[0] && <p className="t-sec" style={{ marginTop: 8 }}>Held: “{cap.queue[0].q}”</p>}
+            {cap.queue[0] && <p className="t-cap" style={{ marginTop: 8 }}>Governor: {GOVERNOR_REASON[cap.governor.reason] || cap.governor.reason}{cap.governor.trigger ? ` · trigger: ${GOVERNOR_TRIGGER[cap.governor.trigger]}` : ""}</p>}
           </section>
 
           <Card title="Required for this session">
@@ -1257,12 +1322,13 @@ function CapturePage() {
                   <TimeLink t={a.t} />
                   <div className="stack tight">
                     <div className="row">{a.type === "guardrail" ? <Badge tone="warning" icon={Hand}>Guardrail</Badge> : <Badge tone="agent" icon={MessageSquare}>Reason</Badge>}
-                      <span className="t-sec">after {a.quiet.toFixed(1)} s of quiet</span>{isNew && <span className="new-tag badge">New</span>}</div>
+                      <span className="t-sec">Governor gate opened</span>{isNew && <span className="new-tag badge">New</span>}</div>
                     <span className="strong">{a.q}</span>
                     <span className="t-sec">Triggered by: {a.eventText} at {fmt(a.eventT)}</span>
                     <button className="link" style={{ alignSelf: "flex-start" }} aria-expanded={open === a.id} onClick={() => setOpen(open === a.id ? null : a.id)}>{open === a.id ? "Hide reasoning" : "Why this question"}</button>
                     {open === a.id && <div className="inset stack x-tight t-sec">
-                      <span>Chosen because it asks for a reason or a limit the screen can't show.</span>
+                      <span>Governor score: {a.governorScore != null ? a.governorScore.toFixed(2) : "saved before scoring"} · trigger: {GOVERNOR_TRIGGER[a.trigger] || "legacy demo trigger"}.</span>
+                      <span>Chosen because it asks for a reason or a limit the screen can't show after the voice, activity, scroll, cooldown and budget gates opened.</span>
                       {a.alts.map((x) => <span key={x.q}>Not asked: “{x.q}” ({x.drop || x.why})</span>)}</div>}
                     {a.answeredAt && <Quote id={a.id} />}
                   </div>

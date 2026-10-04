@@ -295,7 +295,7 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 ### Still open for the imported prototype
 
 - [ ] Replace browser speech preview with the provisioned ElevenAgents Interviewer and Tutor sessions.
-- [ ] Connect redacted server-side vision events and the Phase 2 Question Governor to the Capture screen.
+- [ ] Connect redacted server-side vision events to the Capture screen; the Phase 2 Question Governor is now wired to the seeded no-key stream.
 - [x] Persist the prototype's debrief, Work Map, and Teach state through `/api/apprentice/state`, with browser, memory, and Supabase storage. Completed in `0.0.16`.
 - [x] Reconcile the prototype's rule fixtures with the canonical seeded Work Map before making `/apprentice` the primary demo route. Completed in `0.0.16`.
 
@@ -324,6 +324,22 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 ### Still open for deployment
 
 - [ ] Apply `supabase/migrations/0003_apprentice_state.sql` to the live Supabase project to enable cross-device `/apprentice` restoration. Until then, the browser fallback remains functional.
+
+---
+
+## [0.0.17] — 2026-10-03
+
+### Done (Question Governor in the integrated Capture UI)
+
+- **Shared gate, not a UI imitation** — `/apprentice` Capture now calls the Phase 2 `evaluateQuestionSlot` implementation for every candidate instead of maintaining a second inline pause-and-score algorithm.
+- **All deterministic gates active** — voice silence, interaction idle time, document scrolling, 45-second cooldown, five-question budget, recent triggers, and guardrail coverage control the seeded interview.
+- **Scored evidence in the UI** — each granted question records its Governor score and trigger, while held candidates expose the current gate reason.
+- **No-key fallback retained** — the validated fixture stream supplies deterministic activity and screen events today; live Scribe and redacted vision signals can replace those inputs without changing the gate.
+- **Regression coverage** — all four seeded Capture candidates are checked against the shared Governor contract.
+
+### Still open for live capture
+
+- [ ] Feed real ElevenAgents VAD, user-interaction idle time, document-scroll state, and redacted server-side vision events into the same Capture signal adapter.
 
 ---
 
@@ -357,7 +373,7 @@ Ordered by the build priority in `ARCHITECTURE.md` §8. Each item lists concrete
 - [ ] **Vision loop** — send previous-state summary + new frame to the vision model with structured output matching the event schema; extract `salient_text`.
 - [ ] **Context pusher** — push a compact rolling summary to the agent as non-interrupting contextual updates.
 - [ ] **`get_screen_state()` client tool** — lets the agent pull the latest state before asking.
-- [ ] **Question Governor** — deterministic pause gate (2 s silence + no typing 1.5 s + 45 s cooldown + trigger event), plus question scoring and forced guardrail coverage.
+- [x] **Question Governor** — deterministic pause gate (1.8 s voice silence + 1.5 s interaction idle + no scrolling + 45 s cooldown + trigger event), question scoring, five-per-ten-minute budget, and forced guardrail coverage are integrated into `/apprentice` Capture.
 - **Done when:** with a recorded run, the agent asks at least 3 relevant questions at natural pauses, one of them about a guardrail, referencing on-screen text.
 
 ### Phase 3 — Map + Debrief (2:30–3:15, Engineer A)
