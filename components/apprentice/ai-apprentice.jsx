@@ -24,6 +24,8 @@ import {
 } from "@/lib/apprentice-demo";
 import { evaluateQuestionSlot, QUESTION_GOVERNOR_POLICY } from "@/lib/question-governor";
 import { LiveInterviewer } from "@/components/apprentice/live-interviewer";
+import { usePathname } from "next/navigation";
+
 import { sessionFetch } from "@/lib/session-client";
 import { LIVE_POLICY, LiveSignalTracker, describeLiveEvent, liveCandidatesFromEvent, liveEventField } from "@/lib/live-capture";
 import { useVoiceActivity } from "@/hooks/use-voice-activity";
@@ -3476,9 +3478,13 @@ export default function App() {
   }, []);
 
 
+  const pathname = usePathname();
+  const atRoot = pathname === "/";
   const restoreState = useCallback((state) => {
     if (!state || state.version !== 1) return false;
-    setPage(state.page || "overview");
+    // At the site root always show the landing, even for a returning browser
+    // with saved state, so nobody is dropped straight into the dashboard.
+    setPage(atRoot ? "landing" : state.page || "overview");
     setCap({ ...initCap(), ...(state.cap || {}), running: false });
     setGaps(state.gaps || {});
     setClaims(state.claims || {});
@@ -3491,7 +3497,7 @@ export default function App() {
     setTeach({ log: [], saved: {}, preds: {}, forms: {}, msgs: {}, ...(state.teach || {}) });
     setSettings((current) => ({ ...current, ...(state.settings || {}) }));
     return true;
-  }, []);
+  }, [atRoot]);
 
   useEffect(() => {
     let cancelled = false;
