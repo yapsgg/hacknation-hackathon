@@ -1,8 +1,15 @@
-import { redirect } from "next/navigation"
+import type { Metadata } from "next"
 
-// The Apprentice app already opens on its landing page, so send the root there
-// instead of a second, thinner landing. The Deal Desk sandbox stays at
-// /deal-desk for the live voice-tutor demo.
+import App from "@/components/apprentice/ai-apprentice"
+
+export const metadata: Metadata = {
+  title: "Redline — Partner-grade skepticism for every analyst",
+  description:
+    "Redline learns how a senior partner challenges management's numbers, then stops junior analysts before an unverified one reaches the model.",
+}
+
+// The root serves the landing page directly. No redirect, so the Redline
+// landing is what a visitor (or judge) sees at the site root.
 export default function Page() {
-  redirect("/apprentice")
+  return <App />
 }
