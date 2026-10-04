@@ -18,12 +18,21 @@ export default function Page() {
           their reasoning, then coaches a new hire by catching mistakes before
           they are saved.
         </p>
-        <div>
+        <div className="flex flex-wrap gap-2">
           <Link
             href="/deal-desk"
             className={cn(buttonVariants({ size: "lg" }), "w-fit")}
           >
             Open the Deal Desk
+          </Link>
+          <Link
+            href="/apprentice"
+            className={cn(
+              buttonVariants({ size: "lg", variant: "outline" }),
+              "w-fit"
+            )}
+          >
+            Open the Apprentice
           </Link>
         </div>
         <p className="font-mono text-xs text-muted-foreground">
