@@ -8,6 +8,32 @@ key into chat, a PR, an issue, or a commit; keys live only in `.env.local`
 Goal: prove the parts that cannot be proven without Docker and a human at a
 Chrome window, then record the results in the table at the end.
 
+## Verified on a Mac with Docker (2026-10-04)
+
+- Docker Desktop (aarch64) started both containers; both reported **healthy**.
+- `curl /analyze` returned PERSON, EMAIL_ADDRESS and PHONE_NUMBER findings.
+- `npm run smoke:redactor` answered in **1.46 s**. Inspection by eye: **name,
+  SSN, email and phone are blacked out**; title and Adjusted EBITDA still
+  readable. **Salary `$142,000` is NOT covered** (no compensation recognizer) —
+  see the known gap in step 3.
+- `acceptance.mjs` in **report** mode, vision enabled with the real redactor and
+  a real Gemini key: all PASS, including `no synthetic PII reaches the
+  extracted events`. Vision round trip 5 to 8 s. `redactor:
+  presidio-image-redactor`. The extracted event kept only the file title and
+  "Census row 214"; the name/SSN/email/phone were gone.
+- `acceptance.mjs` in **enforce** mode (with PR #23's origin fix applied):
+  all PASS.
+- Browser live capture (`/apprentice` Live session) with a synthetic screen and
+  synthetic microphone, real Presidio + real Gemini: a frame produced a screen
+  event and the Governor granted a question ("What are you checking in 6.1
+  Adjusted EBITDA bridge (management).xlsx?"), granted only at a natural pause.
+
+## Interactive steps still to do (needs a human)
+
+Steps 5 and 6 below (real Chrome microphone and screen-share permission, the
+signed ElevenLabs Interviewer, spoken "off the record") were not exercised by
+automation. Everything before them has now been run.
+
 ## What was already verified without Docker
 
 - Unit tests, lint, typecheck, build, fixture schema validation.
@@ -174,10 +200,10 @@ live capture for the local demo laptop.
 
 | Check | Result (pass / fail / numbers) |
 | --- | --- |
-| `npm run smoke:redactor` time and visual check (all 5 PII items covered?) | |
-| `acceptance:local` report mode, all PASS incl. PII-leak check | |
-| `acceptance:local` enforce mode | |
-| Live capture: first event within ~10 s; stats line | |
+| `npm run smoke:redactor` time and visual check | PASS (1.46 s; 4 of 5 covered, salary not) |
+| `acceptance:local` report mode, all PASS incl. PII-leak check | PASS |
+| `acceptance:local` enforce mode (needs PR #23) | PASS |
+| Live capture (synthetic screen/mic, real Presidio + Gemini) | PASS (event + question; 5 to 8 s) |
 | No question while talking / while screen changing | |
 | Off the record: no event added | |
 | Interviewer two-way turn | |
