@@ -1139,6 +1139,10 @@ function speakText(on, text) {
   if (ttsUnavailable) { browserSpeak(text); return; }
   let sessionId = null;
   try { sessionId = window.localStorage.getItem("apprentice-session-id"); } catch { /* ignore */ }
+  if (!sessionId) {
+    // The landing can be the first screen, before the app claims an id.
+    try { sessionId = window.crypto.randomUUID(); window.localStorage.setItem("apprentice-session-id", sessionId); } catch { /* ignore */ }
+  }
   if (!sessionId) { browserSpeak(text); return; }
   sessionFetch(sessionId, "/api/tts", {
     method: "POST",
@@ -2781,7 +2785,7 @@ function OrbCarousel() {
   const slot = (i) => { let d = (i - a + n) % n; if (d > n / 2) d -= n; return d; };
   const step = (d) => setA((x) => (x + d + n) % n);
   const cur = LP_MOMENTS[a], prev = LP_MOMENTS[(a - 1 + n) % n], next = LP_MOMENTS[(a + 1) % n];
-  const say = () => { try { const u = new SpeechSynthesisUtterance(cur.q); window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); } catch { /* no speech */ } };
+  const say = () => speakText(true, cur.q);
   return (
     <div className="l-carousel" aria-roledescription="carousel" aria-label="Questions Redline asked">
       <div className="l-orbs">
@@ -3296,7 +3300,7 @@ function Landing2() {
       </footer>
 
       <div className="l-voice">
-        <button onClick={() => { try { const u = new SpeechSynthesisUtterance(LP_MOMENTS[0].q); window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); } catch { /* no speech */ } }}
+        <button onClick={() => speakText(true, LP_MOMENTS[0].q)}
           aria-label="Hear a question Redline asked (browser voice preview)">
           <span className="vorb" aria-hidden><span className="l-noise" /></span>Hear Redline
         </button>
