@@ -206,11 +206,23 @@ export function getExpertMoment(stepId: number, ruleId?: string | null): ExpertM
   }
 }
 
+const searchable = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()
+
+// The Tutor agent often passes a rule id or a loose phrase, so match the id,
+// then the whole phrase, then any distinctive word, before reporting no rule.
 export function lookupGuardrails(topic: string): TutorRule[] {
-  const normalized = topic.trim().toLowerCase()
+  const normalized = searchable(topic)
   if (!normalized) return TUTOR_RULES
+  const byId = TUTOR_RULES.filter((rule) => searchable(rule.id) === normalized)
+  if (byId.length) return byId
+  const haystack = (rule: TutorRule) =>
+    searchable(`${rule.id} ${rule.title} ${rule.rule}`)
+  const byPhrase = TUTOR_RULES.filter((rule) => haystack(rule).includes(normalized))
+  if (byPhrase.length) return byPhrase
+  const words = normalized.split(" ").filter((word) => word.length >= 5)
   return TUTOR_RULES.filter((rule) =>
-    `${rule.title} ${rule.rule}`.toLowerCase().includes(normalized)
+    words.some((word) => haystack(rule).includes(word))
   )
 }
 

@@ -57,6 +57,14 @@ export const APPRENTICE_STEPS = CANONICAL_WORK_MAP.steps.map((step) => ({
     (rule) => rule.id
   ),
   judgment: step.judgment_call ?? false,
+  reasonQuote: cleanQuote(step.reason_quote ?? ""),
+  reasonT: step.reason_t ?? null,
+  guardrails: (step.guardrails ?? []).map((guardrail) => ({
+    rule: guardrail.rule,
+    type: guardrail.type,
+    evidenceT: guardrail.evidence?.t ?? null,
+    evidenceQuote: guardrail.evidence?.quote ?? "",
+  })),
 }))
 
 export const APPRENTICE_GAPS = (CANONICAL_WORK_MAP.open_gaps ?? []).map(
@@ -87,6 +95,17 @@ export const APPRENTICE_QUOTES = {
         en: cleanQuote(rule.reasonQuote),
         where: "canonical expert moment",
         t: rule.t,
+      },
+    ])
+  ),
+  ...Object.fromEntries(
+    CANONICAL_WORK_MAP.steps.map((step) => [
+      `step-${step.id}`,
+      {
+        de: null,
+        en: cleanQuote(step.reason_quote ?? ""),
+        where: "said while working",
+        t: step.reason_t ?? null,
       },
     ])
   ),

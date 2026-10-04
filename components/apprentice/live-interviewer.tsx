@@ -13,6 +13,7 @@ import {
 import { Mic, MicOff, PhoneOff } from "lucide-react"
 
 import { sessionFetch } from "@/lib/session-client"
+import { GOVERNOR_NUDGE, isGovernorNudge, stripVoiceTags } from "@/lib/voice-text"
 
 interface InterviewerSlot {
   id: string
@@ -67,7 +68,8 @@ export function LiveInterviewer(props: LiveInterviewerProps) {
   const [sdkError, setSdkError] = React.useState<string | null>(null)
   const onMessage = React.useCallback(
     (message: MessagePayload) => {
-      if (props.offRecord || !message.message.trim()) return
+      const text = stripVoiceTags(message.message)
+      if (props.offRecord || !text || isGovernorNudge(text)) return
       void sessionFetch(props.sessionId, "/api/privacy/transcripts", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -75,7 +77,7 @@ export function LiveInterviewer(props: LiveInterviewerProps) {
           session_id: props.sessionId,
           t: Number(props.elapsedSeconds.toFixed(2)),
           role: message.role === "agent" ? "agent" : "user",
-          text: message.message,
+          text,
         }),
       })
     },
@@ -139,6 +141,7 @@ function LiveInterviewerContent({
       ].join(" "),
       { contextId: `governor-slot-${slot.id}` }
     )
+    controls.sendUserMessage(GOVERNOR_NUDGE)
     sentSlot.current = slot.id
   }, [controls, slot, status])
 

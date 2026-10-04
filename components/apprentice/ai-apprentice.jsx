@@ -1769,6 +1769,7 @@ function DebriefPage() {
   );
 }
 
+const GUARD_TYPE = { check: "Check", exception: "Exception", limit: "Limit", stop_and_ask: "Stop and ask" };
 function KindChip({ kind }) {
   if (kind === "guardrail") return <Badge tone="warning" icon={Hand}>Guardrail</Badge>;
   if (kind === "judgment") return <Badge icon={Flag}>Judgment call</Badge>;
@@ -1836,7 +1837,7 @@ function WorkMapPage() {
 
           <Card label={`Step ${sel2.n} detail`}>
             <div className="stack">
-              <div className="row"><h2 className="t-decision">Step {sel2.n} of {mapSteps.length}: {sel2.title.toLowerCase()}</h2><span className="spacer" />
+              <div className="row"><h2 className="t-decision">Step {sel2.n} of {mapSteps.length}: {sel2.title}</h2><span className="spacer" />
                 {sel2.judgment && <Badge icon={Flag}>Judgment call</Badge>}<Evidence level={stepVerified(sel2) ? "verified" : "proposed"} /></div>
               <dl className="kv">
                 <dt>Screen moment</dt>
@@ -1844,17 +1845,24 @@ function WorkMapPage() {
                 <dt>Decision</dt><dd className="strong">{sel2.decision}</dd>
                 <dt>Reason</dt>
                 <dd className="stack tight">
+                  {QUOTES[`step-${sel2.n}`]?.en && <Quote id={`step-${sel2.n}`} onTime={jump} />}
                   {reasonRules.map((r) => (
                     <div key={r.id} className={"claim " + (ruleEvidence(r.id) === "verified" ? "verified" : "proposed")}>
                       <div className="row"><KindChip kind={r.kind} /><span className="spacer" /><Evidence level={ruleEvidence(r.id)} /></div>
                       <p className="txt">{claimText(r.id)}</p>
                       {ruleSources(r.id).map((q) => <Quote key={q} id={q} onTime={jump} />)}
                     </div>))}
-                  {reasonRules.length === 0 && <span className="t-sec">This step is driven by its guardrails.</span>}
+                  {reasonRules.length === 0 && !QUOTES[`step-${sel2.n}`]?.en && <span className="t-sec">This step is driven by its guardrails.</span>}
                 </dd>
                 <dt>Guardrails</dt>
                 <dd className="stack tight">
-                  {guardRules.length === 0 && <span className="t-sec">No guardrail on this step.</span>}
+                  {guardRules.length === 0 && (sel2.guardrails || []).length === 0 && <span className="t-sec">No guardrail on this step.</span>}
+                  {guardRules.length === 0 && (sel2.guardrails || []).map((g, i) => (
+                    <div key={i} className="guard">
+                      <div className="row"><Badge tone="warning" icon={Hand}>{GUARD_TYPE[g.type] || "Guardrail"}</Badge><TimeLink t={g.evidenceT} onClick={jump} /></div>
+                      <p className="txt strong">{g.rule}</p>
+                      {g.evidenceQuote && <figure className="quote"><blockquote>“{g.evidenceQuote}”</blockquote><figcaption><span className="t-meta">Information used</span><span>{EXPERT.first}, {fmt(g.evidenceT)}</span></figcaption></figure>}
+                    </div>))}
                   {guardRules.map((r) => (
                     <div key={r.id} className="guard">
                       <div className="row"><Badge tone="warning" icon={Hand}>Stop point</Badge><TimeLink t={r.moment} onClick={jump} /><span className="spacer" /><Evidence level={ruleEvidence(r.id)} /></div>

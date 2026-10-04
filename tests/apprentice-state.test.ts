@@ -8,6 +8,7 @@ import {
 } from "../app/api/apprentice/state/route"
 import {
   APPRENTICE_GAPS,
+  APPRENTICE_QUOTES,
   APPRENTICE_RULES,
   APPRENTICE_SCRIPT,
   APPRENTICE_STEPS,
@@ -156,5 +157,17 @@ test("Seeded Capture candidates pass through the shared Question Governor", () =
       ]
     )
     assert.equal(decision.granted, true, candidate.id)
+  }
+})
+
+test("Every Work Map step carries the expert reason quote and a guardrail", () => {
+  for (const step of APPRENTICE_STEPS) {
+    assert.ok(step.reasonQuote.trim().length > 0, `step ${step.n} reasonQuote`)
+    assert.ok(!step.reasonQuote.startsWith('"'), `step ${step.n} quote unwrapped`)
+    assert.ok(step.guardrails.length >= 1, `step ${step.n} guardrails`)
+    const quote = (APPRENTICE_QUOTES as Record<string, { en: string }>)[
+      `step-${step.n}`
+    ]
+    assert.ok(quote?.en, `step-${step.n} quote`)
   }
 })
