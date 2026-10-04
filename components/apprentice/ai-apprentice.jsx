@@ -1119,13 +1119,41 @@ function CommandBar({ onDone }) {
 }
 
 /* Browser speech remains the no-key fallback for scripted questions. */
-function speakText(on, text) {
+// Prefer the ElevenLabs voice (same as the live Interviewer) so the spoken
+// debrief and capture fallback are not the browser's robotic voice. Falls back
+// to speechSynthesis when the key is missing or synthesis fails.
+let ttsUnavailable = false;
+let ttsAudio = null;
+function browserSpeak(text) {
   try {
-    if (!on || !window.speechSynthesis || !text) return;
+    if (!window.speechSynthesis || !text) return;
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text); u.rate = 0.98;
     window.speechSynthesis.speak(u);
   } catch { /* ignore */ }
+}
+function speakText(on, text) {
+  if (!on || !text || typeof window === "undefined") return;
+  if (ttsUnavailable) { browserSpeak(text); return; }
+  let sessionId = null;
+  try { sessionId = window.localStorage.getItem("apprentice-session-id"); } catch { /* ignore */ }
+  if (!sessionId) { browserSpeak(text); return; }
+  sessionFetch(sessionId, "/api/tts", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ session_id: sessionId, text }),
+  })
+    .then(async (res) => {
+      if (res.status === 503) { ttsUnavailable = true; browserSpeak(text); return; }
+      if (!res.ok) { browserSpeak(text); return; }
+      const blob = await res.blob();
+      if (!blob.size) { browserSpeak(text); return; }
+      try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
+      try { ttsAudio?.pause(); } catch { /* ignore */ }
+      ttsAudio = new Audio(URL.createObjectURL(blob));
+      await ttsAudio.play().catch(() => browserSpeak(text));
+    })
+    .catch(() => browserSpeak(text));
 }
 
 /* ============================== TEACH ================================= */
