@@ -20,13 +20,17 @@ Shared contract between the frontend (Engineer B) and the agent side (Engineer A
 | `block_commit` | `{ reason: string, step_id: number }` | `{ blocked: true, overlay_id: string }` | Freeze the Save button and show the overlay when the hire violates a mapped rule. |
 | `replay_moment` | `{ step_id: number }` | `{ clip: [number, number] \| null, frame: string \| null }` | Play the expert's captured screen moment/clip. |
 | `update_mastery` | `{ rule_id: string, state: "unseen"\|"shown"\|"predicted"\|"applied" }` | `{ ok: boolean }` | Advance a rule's mastery state. |
+| `lookup_guardrail` | `{ topic: string }` | `{ rules: Guardrail[] }` | Read the approved Work Map guardrails before judging an action. |
+| `get_expert_moment` | `{ step_id: number }` | `{ decision: string, reason_quote: string, t: number }` | Fetch the expert's words and screen moment for a step. |
+| `set_off_record` | `{ active: boolean }` | `{ ok: boolean, off_record: boolean }` | Pause/resume capture and purge the confidential window. |
 
-## Server / MCP tools (Tutor only)
+## Server / MCP-compatible tools (Tutor only)
 
 | Tool | Params | Returns | Purpose |
 | --- | --- | --- | --- |
-| `lookup_guardrail` | `{ topic: string }` | `{ rules: Guardrail[] }` | Read the guardrail list from the Work Map. |
-| `get_expert_moment` | `{ step_id: number }` | `{ decision: string, reason_quote: string, t: number }` | Fetch the expert's decision + words for a step. |
+The browser registers `lookup_guardrail` and `get_expert_moment` as client tools
+for the hackathon deployment. They keep the same contract so they can move to
+server/MCP tools later without changing the agent prompt.
 
 ## Event bus (app → backend)
 
