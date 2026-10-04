@@ -386,6 +386,27 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 ---
 
+## [0.0.21] — 2026-10-03
+
+### Done (production-reality audit and signed voice boundary)
+
+- **Machine-readable readiness** — `GET /api/system/readiness` distinguishes executable synthetic workflow logic from configured live services and sensitive-data readiness without exposing secrets.
+- **Truthful Trust UI** — `/apprentice` now displays each runtime capability and its blockers. Claims that frame redaction and deal-room permission integration already exist were removed.
+- **Private voice sessions** — shared ElevenLabs session signing powers both `/api/interviewer/session` and `/api/tutor/session`; missing keys or agent ids fail closed instead of silently using a public agent.
+- **Live primary Interviewer** — `/apprentice` mounts the official ElevenLabs React SDK, registers all Interviewer client tools plus spoken off-record control, and pushes granted Question Governor slots as contextual updates. Browser speech remains only the no-key fallback.
+- **Reality audit** — `docs/PRODUCTION_REALITY_AUDIT.md` records which endpoints are durable, which paths are synthetic, why no webhook is currently required, and the security boundary.
+- **Regression coverage** — readiness and Interviewer fail-closed behavior increase the suite from 21 to 23 tests. Tests, lint, typecheck, production build, and the production dependency audit pass.
+
+### Still open before the system handles real work
+
+- [ ] Implement privacy-reviewed server-side frame redaction and vision extraction; the current Apprentice screen share only detects local frame changes.
+- [ ] Add application authentication and per-session authorization before allowing confidential or personal data.
+- [ ] Replace global anonymous Realtime reads with authenticated session-scoped policies, then add browser subscriptions.
+- [ ] Add rate limiting and origin/CSRF protections to API mutations.
+- [ ] Run the credentialed microphone, screen-share, Presidio, Supabase deletion, and off-record acceptance checks.
+
+---
+
 ## Next Steps (to finish the app)
 
 Ordered by the build priority in `ARCHITECTURE.md` §8. Each item lists concrete deliverables and a definition of done.

@@ -10,18 +10,24 @@ export const runtime = "nodejs"
 export async function POST() {
   try {
     return NextResponse.json(
-      await createSignedConversationSession("ELEVENLABS_TUTOR_AGENT_ID")
+      await createSignedConversationSession("ELEVENLABS_INTERVIEWER_AGENT_ID")
     )
   } catch (error) {
     if (error instanceof VoiceConfigurationError) {
       return NextResponse.json(
-        { error: "Tutor voice is not configured.", missing: error.missing },
+        {
+          error: "Interviewer voice is not configured.",
+          missing: error.missing,
+        },
         { status: 503 }
       )
     }
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Tutor session failed.",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Interviewer session failed.",
       },
       { status: 502 }
     )

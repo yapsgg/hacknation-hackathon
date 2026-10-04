@@ -12,7 +12,8 @@ if (!KEY) {
 }
 
 const LLM = process.env.ELEVENLABS_LLM || "claude-sonnet-4-6"
-const VOICE_INTERVIEWER = process.env.ELEVENLABS_INTERVIEWER_VOICE_ID || "cjVigY5qzO86Huf0OWal"
+const VOICE_INTERVIEWER =
+  process.env.ELEVENLABS_INTERVIEWER_VOICE_ID || "cjVigY5qzO86Huf0OWal"
 const VOICE_TUTOR = process.env.ELEVENLABS_TUTOR_VOICE_ID || VOICE_INTERVIEWER
 
 async function api(method, path, body) {
@@ -22,13 +23,18 @@ async function api(method, path, body) {
     body: body ? JSON.stringify(body) : undefined,
   })
   const text = await res.text()
-  if (!res.ok) throw new Error(`${method} ${path} -> ${res.status}: ${text.slice(0, 600)}`)
+  if (!res.ok)
+    throw new Error(`${method} ${path} -> ${res.status}: ${text.slice(0, 600)}`)
   return text ? JSON.parse(text) : {}
 }
 
 const str = (description) => ({ type: "string", description })
 const num = (description) => ({ type: "number", description })
-const obj = (properties, required = []) => ({ type: "object", properties, required })
+const obj = (properties, required = []) => ({
+  type: "object",
+  properties,
+  required,
+})
 
 // ------------------------------------------------------------ client tools
 const TOOLS = {
@@ -56,7 +62,11 @@ const TOOLS = {
       {
         question: str("The unanswered question."),
         step_id: num("Related Work Map step, if known."),
-        risk: { type: "string", description: "Risk if left unanswered.", enum: ["high", "medium", "low"] },
+        risk: {
+          type: "string",
+          description: "Risk if left unanswered.",
+          enum: ["high", "medium", "low"],
+        },
       },
       ["question", "risk"]
     ),
@@ -72,7 +82,10 @@ const TOOLS = {
     parameters: obj(
       {
         step_id: num("The step being confirmed or corrected."),
-        confirmed: { type: "boolean", description: "True if the expert confirmed it as stated." },
+        confirmed: {
+          type: "boolean",
+          description: "True if the expert confirmed it as stated.",
+        },
         correction: str("The expert's correction, in their words, if any."),
       },
       ["step_id", "confirmed"]
@@ -83,7 +96,9 @@ const TOOLS = {
       "Freeze the Save button and show an overlay when the new hire is about to violate a mapped rule. Use before they commit an unverified value.",
     parameters: obj(
       {
-        reason: str("One sentence on why, in the expert's words where possible."),
+        reason: str(
+          "One sentence on why, in the expert's words where possible."
+        ),
         step_id: num("The Work Map step whose rule is being violated."),
       },
       ["reason", "step_id"]
@@ -92,7 +107,9 @@ const TOOLS = {
   replay_moment: {
     description:
       "Play the expert's captured screen moment for a step, so the hire sees what the expert did.",
-    parameters: obj({ step_id: num("The Work Map step to replay.") }, ["step_id"]),
+    parameters: obj({ step_id: num("The Work Map step to replay.") }, [
+      "step_id",
+    ]),
   },
   update_mastery: {
     description: "Advance the mastery state of one rule for this hire.",
@@ -111,18 +128,28 @@ const TOOLS = {
   lookup_guardrail: {
     description:
       "Read the approved Work Map guardrails for a topic before judging the hire's action.",
-    parameters: obj({ topic: str("Document, field, or judgment topic to look up.") }, ["topic"]),
+    parameters: obj(
+      { topic: str("Document, field, or judgment topic to look up.") },
+      ["topic"]
+    ),
   },
   get_expert_moment: {
     description:
       "Fetch the expert's decision, reason quote, timestamp, frame, and clip for a Work Map step.",
-    parameters: obj({ step_id: num("The Work Map step to retrieve.") }, ["step_id"]),
+    parameters: obj({ step_id: num("The Work Map step to retrieve.") }, [
+      "step_id",
+    ]),
   },
   set_off_record: {
     description:
       "Pause or resume capture and purge the confidential buffer when the user asks to go off the record.",
     parameters: obj(
-      { active: { type: "boolean", description: "True to go off record; false to resume." } },
+      {
+        active: {
+          type: "boolean",
+          description: "True to go off record; false to resume.",
+        },
+      },
       ["active"]
     ),
   },
@@ -206,7 +233,16 @@ const TUTOR_PROMPT = `You are the Tutor in AI Apprentice. You coach a junior pri
 - Be warm and brief. One idea per turn. No lecturing, no praise inflation.
 - If you do not have a rule for what the hire is doing, say so and recommend escalating to QoE rather than guessing.`
 
-function agentBody(name, prompt, toolNames, ids, voice, firstMessage, vars, expressive) {
+function agentBody(
+  name,
+  prompt,
+  toolNames,
+  ids,
+  voice,
+  firstMessage,
+  vars,
+  expressive
+) {
   return {
     name,
     tags: ["ai-apprentice"],
@@ -248,7 +284,9 @@ function writeEnv(updates) {
   let text = readFileSync(".env.local", "utf8")
   for (const [k, v] of Object.entries(updates)) {
     const re = new RegExp(`^${k}=.*$`, "m")
-    text = re.test(text) ? text.replace(re, `${k}=${v}`) : text.replace(/\n*$/, `\n${k}=${v}\n`)
+    text = re.test(text)
+      ? text.replace(re, `${k}=${v}`)
+      : text.replace(/\n*$/, `\n${k}=${v}\n`)
   }
   writeFileSync(".env.local", text)
 }
@@ -260,7 +298,14 @@ const interviewerId = await upsertAgent(
   agentBody(
     "AI Apprentice - Interviewer",
     INTERVIEWER_PROMPT,
-    ["get_screen_state", "log_question", "mark_gap", "start_debrief", "submit_teachback_result"],
+    [
+      "get_screen_state",
+      "log_question",
+      "mark_gap",
+      "start_debrief",
+      "submit_teachback_result",
+      "set_off_record",
+    ],
     ids,
     VOICE_INTERVIEWER,
     "Hi, I'll stay quiet while you work and only ask when something is worth understanding. Go ahead whenever you're ready.",
