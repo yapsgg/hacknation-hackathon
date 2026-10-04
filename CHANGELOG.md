@@ -371,6 +371,21 @@ See [`IDEA.md`](./IDEA.md) for the pitch and [`ARCHITECTURE.md`](./ARCHITECTURE.
 
 ---
 
+## [0.0.20] — 2026-10-03
+
+### Done (Claude Code + local ElevenLabs handoff)
+
+- **Claude Code context** — `CLAUDE.md` now imports `CLAUDE_HANDOFF.md`, which records the verified branch/CI state, architecture boundaries, next implementation workload, likely files, test gates, and conflict-safe Git workflow.
+- **Local ElevenLabs runbook** — documented the existing `/deal-desk` live Tutor bridge, server-side signed URL flow, safe `.env.local` setup, agent provisioning, credit-conscious microphone test, and the remaining `/apprentice` Interviewer integration.
+- **Vercel resolution clarified** — documented that the Git author identity check cannot be bypassed in code and listed owner-authorized paths that reuse the existing `agent` project without creating another project.
+
+### Needs a human secret or project owner
+
+- [ ] Add the ElevenLabs API key to the ignored `.env.local`, run `npm run provision:agents`, restart the local server, and perform one short synthetic microphone test.
+- [ ] Have the existing Vercel project owner deploy current `main` or authorize the commit author for that same project.
+
+---
+
 ## Next Steps (to finish the app)
 
 Ordered by the build priority in `ARCHITECTURE.md` §8. Each item lists concrete deliverables and a definition of done.
