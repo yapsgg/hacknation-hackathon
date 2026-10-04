@@ -31,7 +31,7 @@ const SAMPLE_HEIGHT = 27
 const OUTPUT_WIDTH = 960
 const MAX_ENCODED_LENGTH = 320_000
 
-function encodeReadableJpeg(canvas: HTMLCanvasElement): string {
+export function encodeReadableJpeg(canvas: HTMLCanvasElement): string {
   let encoded = canvas.toDataURL("image/jpeg", 0.55)
   if (encoded.length <= MAX_ENCODED_LENGTH) return encoded
   encoded = canvas.toDataURL("image/jpeg", 0.35)

@@ -124,7 +124,7 @@ export function getSystemReadiness(): SystemReadiness {
       screen_capture: {
         state: "live",
         detail:
-          "Browser screen sharing and local change detection are implemented. Frames leave the browser only when explicit retention or the gated redaction-first vision pipeline is enabled.",
+          "Browser screen sharing, local change detection and microphone-level voice activity feed the Question Governor in /apprentice live capture. Frames leave the browser only when explicit retention or the gated redaction-first vision pipeline is enabled; the microphone is measured locally and never recorded.",
       },
       vision_extraction: {
         state: visionReady ? "live" : "demo",
