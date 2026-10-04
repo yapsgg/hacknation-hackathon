@@ -57,6 +57,31 @@ test("Apprentice state round-trips through the memory fallback", async () => {
   assert.equal((await empty.json()).state, null)
 })
 
+test("Apprentice state accepts every page the UI can persist", async () => {
+  // PAGES-list drift broke saving on the landing page and Source files (422).
+  for (const page of [
+    "landing",
+    "overview",
+    "files",
+    "capture",
+    "debrief",
+    "map",
+    "teach",
+    "results",
+    "export",
+    "trust",
+  ]) {
+    const saved = await putState(
+      new Request(url, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ state: { ...state, page } }),
+      })
+    )
+    assert.equal(saved.status, 200, `page ${page} should be accepted`)
+  }
+})
+
 test("Apprentice state rejects invalid sessions and malformed state", async () => {
   const badSession = await getState(
     new Request("http://localhost/api/apprentice/state?session_id=not-a-uuid")
