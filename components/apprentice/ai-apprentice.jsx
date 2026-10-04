@@ -8,6 +8,20 @@ import {
   Lock, Square, Volume2, VolumeX, Keyboard, BookOpen, MessageSquare, Mic, Search, Hand, Bot, Database,
   UserCheck, ShieldCheck, Clock, Users, Menu, Sun, Moon, Monitor, ChevronDown, Info, FileText, Flag,
 } from "lucide-react";
+import {
+  APPRENTICE_ACTIVITY,
+  APPRENTICE_DEAL,
+  APPRENTICE_END_T,
+  APPRENTICE_EXPERT,
+  APPRENTICE_GAPS,
+  APPRENTICE_LIVE_BUDGET,
+  APPRENTICE_PAUSE_S,
+  APPRENTICE_QUOTES,
+  APPRENTICE_RULE,
+  APPRENTICE_RULES,
+  APPRENTICE_SCRIPT,
+  APPRENTICE_STEPS,
+} from "@/lib/apprentice-demo";
 
 /* ------------------------------------------------------------------
    The AI Apprentice: starter UI, rebuilt on the Mono design practices.
@@ -306,10 +320,6 @@ button.time{color:var(--action);background:var(--action-wash);text-decoration:un
 .scr-msg{margin-top:8px;padding:6px 8px;border-radius:4px;border:1px solid}
 .scr-msg.bad{background:var(--warning-wash);border-color:var(--warning);color:var(--text)}
 .scr-msg.good{background:var(--success-wash);border-color:var(--success);color:var(--text)}
-.memo-sec{margin-bottom:12px}
-.memo-sec h4{font-size:12px;line-height:16px;font-weight:600;margin-bottom:4px}
-.risk{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;min-height:28px;border:1px solid var(--scr-line);border-radius:4px;margin-bottom:6px;cursor:pointer}
-.risk input{margin-top:2px;width:16px;height:16px}
 
 /* ---------- work map ---------- */
 .track{position:relative;height:64px;margin:0 16px}
@@ -436,144 +446,42 @@ button.time{color:var(--action);background:var(--action-wash);text-decoration:un
 }
 `;
 /* ----------------------------- people ---------------------------------- */
-const EXPERT = { name: "Katharina Weiss", first: "Katharina", role: "Senior partner, 22 years in buyouts", lang: "German" };
-const EXPERT2 = { name: "Marcus Webb", first: "Marcus", role: "Principal, 9 years" };
+const EXPERT = APPRENTICE_EXPERT;
 const TRAINEE = { name: "Priya Shah", first: "Priya", role: "Analyst, first deal" };
-const DEAL = { code: "Project Atlas", target: "a fleet telematics software company" };
+const DEAL = APPRENTICE_DEAL;
 const TEACH_DEAL = { code: "Project Beacon", target: "a dental practice software company" };
 
 /* --------------------- the expert's own words -------------------------- */
 // Every rule and step links back to one of these. de = what she said, en = tutor language.
-const QUOTES = {
-  think: { de: "Erst das Dokument, dann die Zahl.", en: "Document first, then the number.", where: "said while working", t: 33 },
-  q1: { de: "Die Beratung taucht seit drei Jahren jedes Jahr auf. Was jedes Jahr kommt, ist nicht einmalig.", en: "That consulting shows up every year for three years. If it comes every year, it isn't one-time.", where: "live question", t: 70 },
-  q2: { de: "Nicht wenn es strittig ist. Strittige Add-backs gehen an das QoE-Team, mit den Rechnungen dran.", en: "Not if it's disputed. Disputed add-backs go to the QoE team, with the invoices attached.", where: "live question", t: 103 },
-  q3: { de: "Paragraf 3 sagt, das Amendment ersetzt Anhang B. Zwei Verträge heißen nicht zweimal Umsatz.", en: "Section 3 says the amendment replaces Schedule B. Two contracts don't mean twice the revenue.", where: "live question", t: 153 },
-  q4: { de: "Wenn das Management weniger Capex plant als je zuvor, will ich den Grund schriftlich sehen. Ohne Beleg rechne ich mit dem Durchschnitt und eskaliere.", en: "If management plans less capex than ever before, I want the reason in writing. Without proof, I model the average and escalate.", where: "live question", t: 211 },
-  end: { de: "Und alles, was ich markiert habe, steht in Key Risks, mit dem Dollarbetrag.", en: "And everything I flagged goes into Key Risks, with the dollar amount.", where: "said while working", t: 222 },
-  d1: { de: "Dann geht es an die Rechtsabteilung. Bei Vertragssprache rate ich nicht.", en: "Then it goes to legal. I don't guess at contract language.", where: "debrief", t: null },
-  d2: { de: "Zwei Jahre reichen mir. Bei Umzügen, Abfindungen und Rechtsstreit schaue ich immer in die Rechnungen, egal was im Bridge steht.", en: "Two years is enough for me. For relocations, severance and litigation, I always check the invoices, whatever the bridge says.", where: "debrief", t: null },
-  d3: { de: "Dann kommt die Zahl nicht ins Modell. Ich frage bei den Bankern nach und markiere sie als ungeprüft.", en: "Then the number doesn't go into the model. I request the source from the bankers and mark it unverified.", where: "debrief", t: null },
-  d4: { de: "Ja, wenn ein Leasingvertrag die Flotte übernimmt. Dann will ich den Vertrag sehen. Eine Folie im Management-Deck reicht nicht.", en: "Yes, if a lease takes over the fleet. Then I want to see the lease. A slide in the management deck isn't enough.", where: "debrief", t: null },
-  tb1: { de: "Nein, nach dem Datum der letzten Fassung. Die Banker räumen alte Versionen nie weg.", en: "No, by the date of the latest version. The bankers never clear out the old versions.", where: "teach-back correction", t: null },
-  th1: { de: null, en: "The folder index mirrors the CIM, so it's easier to tick things off.", where: "comparison question", t: null, by: "Marcus" },
-  th2: { de: null, en: "The new trucks are under warranty for three years, so I took management's word for it.", where: "comparison question", t: null, by: "Marcus" },
-  sb1: { de: "Die Ordner zeigen, was die Banker zeigen wollen. Das Datum zeigt, was zuletzt unterschrieben wurde.", en: "The folders show what the bankers want you to see. The dates show what was signed last.", where: "comparison question", t: null },
-  sb2: { de: "Eine Garantie deckt Reparaturen, keinen Ersatz. Zeig mir die Garantiebedingungen, dann reden wir.", en: "A warranty covers repairs, not replacement. Show me the warranty terms, then we can talk.", where: "comparison question", t: null },
-};
+const QUOTES = APPRENTICE_QUOTES;
 
 /* ------------------------- rules (pencil -> ink) ------------------------ */
 // kind: step | judgment | guardrail. moment = screen time in seconds.
-const RULES = [
-  { id: "R1", kind: "step", step: 1, moment: 6, text: "Spread the data room by latest version date, not folder by folder. Old versions are never cleared out.",
-    draft: "Spread the data room folder by folder, in the order the bankers set it up.", draftWrong: true, correction: "tb1",
-    sources: ["tb1"], basis: "Assumption from the data room's default folder order. Katharina never said it." },
-  { id: "R7", kind: "guardrail", step: 2, moment: 21, text: "Never hardcode a management-adjusted number without opening its primary source. No source: request it from the bankers and mark it unverified.",
-    sources: ["think", "d3"], basis: "Heard while she worked, and debrief" },
-  { id: "R2", kind: "judgment", step: 3, moment: 58, text: "A cost that appears in two or more prior years is run-rate, not a one-time add-back.",
-    sources: ["q1", "d2"], basis: "Live question and debrief" },
-  { id: "R8", kind: "guardrail", step: 3, moment: 58, text: "Relocation, severance and litigation add-backs: check the invoices before accepting, whatever the bridge says.",
-    sources: ["d2"], basis: "Debrief answer" },
-  { id: "R3", kind: "guardrail", step: 4, moment: 100, text: "Never settle a disputed add-back yourself. Halt and send it to the QoE team with the invoices attached.",
-    sources: ["q2"], basis: "Live question" },
-  { id: "R4", kind: "judgment", step: 5, moment: 150, text: "When a contract has an amendment, read its fee clause. If it supersedes, ARR is the amendment's amount, not the sum of both.",
-    sources: ["q3"], basis: "Live question" },
-  { id: "R5", kind: "guardrail", step: 5, moment: 150, text: "Contract language unclear or two contracts look duplicative: halt and send it to legal.",
-    sources: ["d1"], basis: "Debrief answer" },
-  { id: "R6", kind: "judgment", step: 6, moment: 208, text: "Maintenance capex below the historical run-rate needs a document behind it, like a lease. Without one, model the historical average and escalate.",
-    sources: ["q4", "d4"], basis: "Live question and debrief" },
-  { id: "R9", kind: "step", step: 7, moment: 216, text: "Every flagged item goes into the IC memo's Key Risks, with its dollar impact.",
-    sources: ["end"], basis: "Heard while she worked" },
-];
-const RULE = Object.fromEntries(RULES.map((r) => [r.id, r]));
-
-const STEPS = [
-  { n: 1, title: "Organize the data room", t: 6, field: null, decision: "Spread 1,240 files by latest version date instead of the bankers' folders", rules: ["R1"] },
-  { n: 2, title: "Open the source before the number", t: 21, field: "doc", decision: "Opened the GL detail before touching management's EBITDA bridge", rules: ["R7"] },
-  { n: 3, title: "Scrub the add-backs", t: 58, field: "addback", decision: "Cut the $1.2M “non-recurring” consulting add-back to $0", rules: ["R2", "R8"], judgment: true },
-  { n: 4, title: "Send disputed items to QoE", t: 100, field: "qoe", decision: "Flagged the consulting line for QoE review with three years of invoices", rules: ["R3"] },
-  { n: 5, title: "Validate the top contracts", t: 150, field: "arr", decision: "Corrected Meridian Freight ARR from $500,000 to $260,000", rules: ["R4", "R5"], judgment: true },
-  { n: 6, title: "Check capex against history", t: 208, field: "capex", decision: "Replaced management's 1.5% maintenance capex with the 4.1% historical average", rules: ["R6"], judgment: true },
-  { n: 7, title: "Carry the flags into the IC memo", t: 216, field: "memo", decision: "Added all three findings to Key Risks with their dollar impact", rules: ["R9"] },
-];
+const RULES = APPRENTICE_RULES;
+const RULE = APPRENTICE_RULE;
+const STEPS = APPRENTICE_STEPS;
 
 /* ------------------------- debrief gaps -------------------------------- */
-const GAPS = [
-  { id: "d3", step: 2, q: "Every number today had a document behind it. What do you do when the data room has no source for a management figure?", why: "Case not seen during the task" },
-  { id: "d2", step: 3, q: "You cut the consulting add-back after three years of history. How much history do you need before you call a cost recurring?", why: "Boundary not stated" },
-  { id: "d1", step: 5, q: "Meridian's amendment clearly said it replaces Schedule B. What if the wording is unclear, or two contracts just look alike?", why: "Only the clear case was seen" },
-  { id: "d4", step: 6, q: "Atlas's capex history was steady around 4%. Is there ever a good reason for it to drop after a buyout?", why: "Held back during the task to keep live questions short" },
-];
+const GAPS = APPRENTICE_GAPS;
 
 /* --------------------- capture script (demo session) ------------------- */
-const PAUSE_S = 1.5;      // quiet time before the agent may speak
-const END_T = 228;        // demo session length in seconds
-const LIVE_BUDGET = 5;    // max live questions per 10 minutes
+const PAUSE_S = APPRENTICE_PAUSE_S;
+const END_T = APPRENTICE_END_T;
+const LIVE_BUDGET = APPRENTICE_LIVE_BUDGET;
 
 // What the expert is doing. The agent never speaks over any of these.
-const ACTIVITY = [
-  { from: 0, to: 4, type: "reading" }, { from: 6, to: 18, type: "reading" }, { from: 21, to: 32, type: "reading" },
-  { from: 33, to: 37, type: "speaking" }, { from: 38, to: 45, type: "reading" }, { from: 46, to: 66, type: "typing" },
-  { from: 84, to: 99, type: "typing" }, { from: 120, to: 140, type: "reading" }, { from: 143, to: 149, type: "typing" },
-  { from: 163, to: 186, type: "speaking" }, { from: 190, to: 200, type: "reading" }, { from: 201, to: 207, type: "typing" },
-  { from: 212, to: 215, type: "typing" }, { from: 222, to: 226, type: "speaking" },
-];
+const ACTIVITY = APPRENTICE_ACTIVITY;
 
-// Vision-model events. cands = candidate questions the picker considered.
-const SCRIPT = [
-  { t: 2, kind: "screen", text: "Data room opened: Project Atlas, 1,240 files" },
-  { t: 6, kind: "screen", text: "Data room index: 9 folders, 1,240 files",
-    cands: [{ q: "How many files are in the data room?", drop: "The screen already shows 1,240" }] },
-  { t: 21, kind: "screen", text: "Opened 6.1 Adjusted EBITDA bridge: 4 add-backs, $3.1M total", field: "doc" },
-  { t: 24, kind: "pii", n: 2, text: "Preparer name and email redacted in frame" },
-  { t: 30, kind: "screen", text: "Opened 5.4 GL detail, filtered to Brightline Advisory", field: "doc" },
-  { t: 33, kind: "speech", quote: "think" },
-  { t: 58, kind: "screen", text: "Model cell changed: consulting add-back $1.2M → $0", field: "addback",
-    cands: [
-      { q: "What's the new add-back amount?", drop: "The screen already shows $0" },
-      { id: "q1", q: "You cut the $1.2M consulting add-back to zero. What made you do that?", type: "reason", score: 0.92 },
-    ] },
-  { t: 100, kind: "screen", text: "Consulting line flagged for QoE review, 3 invoices attached", field: "qoe",
-    cands: [
-      { id: "q2", q: "You flagged that line for QoE instead of just deleting it. Would you ever settle an add-back yourself?", type: "guardrail", score: 0.88 },
-      { q: "Which invoices did you attach?", drop: "Listed in the flag" },
-    ] },
-  { t: 112, kind: "screen", text: "Adjusted EBITDA recalculated: $21.5M → $20.3M", field: "ebitda" },
-  { t: 120, kind: "screen", text: "Opened 3.2 Meridian Freight MSA: Schedule B, $240,000 a year", field: "doc" },
-  { t: 121, kind: "pii", n: 1, text: "Customer signatory name redacted in frame" },
-  { t: 130, kind: "screen", text: "Opened 3.2 Meridian Freight Amendment 1, §3.1 highlighted", field: "doc" },
-  { t: 150, kind: "screen", text: "Model cell changed: Meridian Freight ARR $500,000 → $260,000", field: "arr",
-    cands: [
-      { id: "q3", q: "You changed Meridian from $500,000 to $260,000 after reading the amendment. Why not add both contracts?", type: "reason", score: 0.91 },
-      { q: "Did you mean to lower Meridian's ARR?", drop: "Yes or no question; reveals no reason" },
-    ] },
-  { t: 163, kind: "offOn", text: "Katharina said “off the record”" },
-  { t: 175, kind: "screen", text: "(not stored)" },
-  { t: 186, kind: "offOff", text: "Back on the record" },
-  { t: 190, kind: "screen", text: "Opened 7.3 Capex schedule and fixed asset history", field: "doc" },
-  { t: 192, kind: "pii", n: 2, text: "CFO name and email redacted in frame" },
-  { t: 208, kind: "screen", text: "Model cell changed: maintenance capex 1.5% → 4.1% of revenue; IRR 27.4% → 22.0% (−5.4 pp)", field: "capex",
-    cands: [
-      { id: "q4", q: "You replaced management's 1.5% capex with 4.1%. When do you stop and escalate instead of just changing it?", type: "guardrail", score: 0.9 },
-      { q: "Is there ever a good reason for capex to drop after a buyout?", defer: "d4", why: "Useful but not urgent, so it waits for the debrief" },
-      { q: "What's the new IRR?", drop: "Shown in the model" },
-    ] },
-  { t: 216, kind: "screen", text: "IC memo draft: 3 items added to Key Risks", field: "memo" },
-  { t: 222, kind: "speech", quote: "end" },
-  { t: 227, kind: "end", text: "Katharina ended the task" },
-];
+const SCRIPT = APPRENTICE_SCRIPT;
 
 /* -------------- teach: Project Beacon, a deal she never saw ------------ */
 const CASES = [
   { id: "rev", label: "Revenue and add-backs", stage: "Contract validation and QoE scrubbing",
-    intro: `${TEACH_DEAL.code} is a deal Katharina never saw. Spread Crestline Health's ARR and the relocation add-back into the model, then save to run the debt schedule. I'll stay quiet unless you're about to save something she'd stop.`,
-    predict: { q: "Crestline has an $80,000 MSA and a $110,000 software agreement. What's Crestline's ARR?", options: ["$190,000", "$110,000", "$80,000"], answer: "$110,000", rule: "R4" } },
+    intro: `${TEACH_DEAL.code} is a deal ${EXPERT.first} never saw. Spread Crestline Health's ARR and the relocation add-back into the model, then save to run the debt schedule. I'll stay quiet unless you're about to save something she'd stop.`,
+    predict: { q: "Crestline has an $80,000 MSA and a $110,000 software agreement. What's Crestline's ARR?", options: ["$190,000", "$110,000", "$80,000"], answer: "$110,000", rule: "acme-amendment-language" } },
   { id: "lbo", label: "LBO assumptions", stage: "Running the LBO and value creation plan",
     intro: "Revenue and EBITDA are scrubbed. Now link them to the LBO and enter maintenance capex before the model calculates IRR.",
-    predict: { q: "Management says 1.6% maintenance capex. History averages 4.0%. What would Katharina put in the model?", options: ["1.6%, management's number", "4.0%, and ask why"], answer: "4.0%, and ask why", rule: "R6" } },
-  { id: "memo", label: "IC memo", stage: "Drafting the Investment Committee memo",
-    intro: "Last step: the IC memo. Check the Key Risks section before it goes to the partners.",
-    predict: { q: "Which findings belong in Key Risks?", options: ["Only the biggest ones", "Every item you flagged"], answer: "Every item you flagged", rule: "R9" } },
+    predict: { q: "Management says 1.6% maintenance capex. History averages 4.0%. What would Sabine put in the model?", options: ["1.6%, management's number", "4.0%, and ask why"], answer: "4.0%, and ask why", rule: "capex-below-average" } },
 ];
 
 const TEACH_DOCS = {
@@ -589,15 +497,7 @@ const TEACH_DOCS = {
     { id: "far", name: "7.5 Fixed asset register, history.xlsx", lines: [["2021: 3.8% of revenue"], ["2022: 4.2%"], ["2023: 3.9%"], ["2024: 4.1%"], ["Average: 4.0%", true]] },
     { id: "deck", name: "2.1 Management presentation.pdf", lines: [["“Modernized equipment requires less maintenance”"], ["No lease, warranty or vendor terms attached", true]] },
   ],
-  memo: [],
 };
-
-const RISKS = [
-  { id: "conc", text: "Customer concentration: the top 5 customers are 38% of ARR.", required: false },
-  { id: "crest", short: "the Crestline contract replacement", text: "Crestline's 2025 agreement replaces its 2023 MSA. ARR is $110,000, not $190,000 (−$80,000).", required: true },
-  { id: "reloc", short: "the disputed $4.0M relocation add-back", text: "The $4.0M relocation add-back is disputed. Relocation costs recur in 2022–2024. With the QoE team.", required: true },
-  { id: "capex", short: "the capex gap against history", text: "Maintenance capex: management assumes 1.6% against a 4.0% history, with no supporting document. IRR falls from 26.8% to 21.5% at history (−5.3 pp).", required: true },
-];
 
 /* =========================== helpers ================================== */
 const fmt = (s) => {
@@ -711,44 +611,44 @@ function toggleOff(c, how = "button") {
 
 /* ======================== screen at time t ============================= */
 const VDR_ROWS = [
-  ["3.2 Meridian Freight, Amendment 1.pdf", "3 Customer contracts", "14 Mar 2025", 20250314],
+  ["3.1 Acme MSA Amendment 2.pdf", "3 Customer contracts", "14 Mar 2025", 20250314],
   ["6.1 Adjusted EBITDA bridge (mgmt).xlsx", "6 Financials", "02 Mar 2025", 20250302],
-  ["7.3 Capex schedule (mgmt case).xlsx", "7 Operations", "28 Feb 2025", 20250228],
-  ["5.4 GL detail 2022–2024.xlsx", "5 Accounting", "20 Feb 2025", 20250220],
-  ["9.1 Employee census.xlsx", "9 HR", "05 Jan 2025", 20250105],
-  ["3.2 Meridian Freight, MSA.pdf", "3 Customer contracts", "11 Jan 2023", 20230111],
+  ["7.3 Capex history.xlsx", "7 Operations", "28 Feb 2025", 20250228],
+  ["5.2 Relocation invoices 2021–2023.xlsx", "5 Accounting", "20 Feb 2025", 20250220],
+  ["3.3 Customer 3 Add-On.pdf", "3 Customer contracts", "05 Jan 2025", 20250105],
+  ["3.1 Acme MSA.pdf", "3 Customer contracts", "11 Jan 2023", 20230111],
 ];
 
-// What was on Katharina's screen at second t: a data-room document on the left, the model on the right.
+// What was on Sabine's screen in the canonical seeded session.
 function screenAt(t) {
-  if (t < 21) return { view: "index", sorted: t >= 10 };
-  const ebitdaRows = [
-    { key: "rep", label: "Reported EBITDA 2024", v: "$18.4M" },
-    { key: "addback", label: "Add-back: consulting, non-recurring", v: t >= 58 ? "$0.0M" : "$1.2M", sub: t >= 58 ? "Was $1.2M in management's bridge" : "From management's bridge" },
-    { key: "qoe", label: "QoE status", v: t >= 100 ? "Flagged for QoE review" : "–", sub: t >= 100 ? "3 invoices attached: 2022, 2023, 2024" : null },
-    { key: "ebitda", label: "Adjusted EBITDA", v: t >= 112 ? "$20.3M" : "$21.5M", calc: true },
-  ];
-  if (t < 120) return { view: "work", label: "EBITDA bridge",
-    doc: t < 30
-      ? { name: "6.1 Adjusted EBITDA bridge (management).xlsx", lines: [["Reported EBITDA 2024: $18.4M"], ["Consulting, non-recurring: +$1.2M", true], ["Severance: +$0.7M"], ["Relocation: +$0.6M"], ["Pro forma pricing: +$0.6M"], ["Adjusted EBITDA: $21.5M"]], person: "Dana Whitfield, CFO" }
-      : { name: "5.4 GL detail 2022–2024, filtered: Brightline Advisory", lines: [["2022: $1.1M"], ["2023: $1.3M"], ["2024: $1.2M", true], ["Description: ongoing operational advisory"]], person: "Dana Whitfield, CFO" },
-    rows: ebitdaRows };
-  if (t < 190) return { view: "work", label: "Top-20 contracts",
-    doc: t < 130
-      ? { name: "3.2 Meridian Freight MSA (Jan 2023).pdf", lines: [["Schedule B: annual subscription fees $240,000"], ["Term: 3 years, renews automatically"]], person: "Tom Reyes, VP Operations" }
-      : { name: "3.2 Meridian Freight Amendment 1 (Mar 2025).pdf", lines: [["§3.1 This Amendment supersedes and replaces Schedule B in its entirety.", true], ["New annual fees: $260,000"]], person: "Tom Reyes, VP Operations" },
+  if (t < 8) return { view: "index", sorted: true };
+  if (t < 40) return { view: "work", label: "Adjusted EBITDA bridge",
+    doc: { name: "6.1 Adjusted EBITDA bridge (management).xlsx", lines: [["Management Adjusted EBITDA"], ["One-time relocation: +$4.0M", true], ["Legal fees: one-time"], ["Draft — management"]], person: "Seller finance team" },
     rows: [
-      { key: "ebitda", label: "Adjusted EBITDA", v: "$20.3M", calc: true },
-      { key: "arr", label: "ARR: Meridian Freight", v: t >= 150 ? "$260,000" : "$500,000", sub: t >= 150 ? "Amendment 1 only" : "MSA $240,000 + Amendment 1 $260,000" },
-      { key: "arrtop", label: "Top-20 customer ARR", v: t >= 150 ? "$13.94M" : "$14.18M", calc: true },
+      { key: "addback", label: "Add-back: relocation", v: "$4.0M", sub: "From management's bridge" },
+      { key: "ebitda", label: "Adjusted EBITDA", v: "$35.2M", calc: true },
+    ] };
+  if (t < 118) return { view: "work", label: "Top-20 contracts",
+    doc: t < 64
+      ? { name: "3.1 Acme MSA.pdf", lines: [["Order Form #1"], ["Annual subscription fee: $80,000", true]], person: "Acme signatory" }
+      : { name: "3.1 Acme MSA Amendment 2.pdf", lines: [["This Amendment supersedes and replaces Order Form #1.", true], ["Annual subscription fee: $110,000"]], person: "Acme signatory" },
+    rows: [
+      { key: "arr", label: "ARR: Acme", v: t >= 95.4 ? "$110,000" : t >= 88.2 ? "$190,000" : "–", sub: t >= 95.4 ? "Amendment 2 replaces Order Form #1" : "Awaiting validation" },
+      { key: "arrtop", label: "Top-20 customer ARR", v: t >= 95.4 ? "$13.55M" : "$13.63M", calc: true },
+    ] };
+  if (t < 160) return { view: "work", label: "Management add-backs",
+    doc: t < 150.3
+      ? { name: "6.1 Management Add-Backs.xlsx", lines: [["Relocation, one-time: $4.0M", true], ["Prepared by management"]], person: "Seller finance team" }
+      : { name: "5.2 Relocation invoices 2021–2023.xlsx", lines: [["2021 relocation expense"], ["2022 relocation expense"], ["2023 relocation expense", true]], person: "Seller finance team" },
+    rows: [
+      { key: "addback", label: "Relocation add-back", v: "$4.0M", sub: t >= 150.3 ? "Flagged for QoE review" : "Management case" },
+      { key: "qoe", label: "QoE status", v: t >= 150.3 ? "Flagged" : "–" },
     ] };
   return { view: "work", label: "LBO assumptions",
-    doc: { name: "7.3 Capex schedule and fixed asset history.xlsx", lines: [["2021: 4.1% of revenue"], ["2022: 3.9%"], ["2023: 4.4%"], ["2024: 4.0%"], ["Management plan 2026–2030: 1.5%", true]], person: "Dana Whitfield, CFO" },
+    doc: { name: "7.3 Capex history.xlsx", lines: [["2021: 4.0% of revenue"], ["2022: 4.2%"], ["2023: 4.1%"], ["3-year average: 4.1%", true], ["Management forecast: 1.8%"]], person: "Seller finance team" },
     rows: [
-      { key: "ebitda", label: "Adjusted EBITDA", v: "$20.3M", calc: true },
-      { key: "capex", label: "Maintenance capex, % of revenue", v: t >= 208 ? "4.1%" : "1.5%", sub: t >= 208 ? "Historical average. Management case: 1.5%" : "Management case" },
-      { key: "irr", label: "Sponsor IRR, 5 years", v: t >= 208 ? "22.0%" : "27.4%", calc: true },
-      { key: "memo", label: "IC memo: Key Risks", v: t >= 216 ? "3 items" : "–" },
+      { key: "capex", label: "Maintenance capex, % of revenue", v: t >= 199.6 ? "4.1%" : "1.8%", sub: t >= 199.6 ? "Historical average; QoE escalation required" : "Management forecast" },
+      { key: "qoe", label: "Commit status", v: t >= 205.6 ? "Held for review" : "Not saved" },
     ] };
 }
 
@@ -1032,7 +932,7 @@ function AppearanceMenu() {
    text cursor until the user has started arrowing; no stray tab stops. */
 const PAGES = [
   ["overview", "Overview"], ["capture", "Capture: live session"], ["debrief", "Debrief"], ["map", "Work Map"],
-  ["teach", `Coach ${TRAINEE.first}`], ["results", "Results"], ["compare", "Compare experts"], ["export", "Agent export"], ["trust", "Trust and privacy"],
+  ["teach", `Coach ${TRAINEE.first}`], ["results", "Results"], ["export", "Agent export"], ["trust", "Trust and privacy"],
 ];
 function CommandBar({ onDone }) {
   const { go, setMapStep } = useApp();
@@ -1086,19 +986,23 @@ function speakText(on, text) {
 }
 
 /* ============================== TEACH ================================= */
-const CASE_RULES = { rev: ["R4", "R7", "R8", "R3"], lbo: ["R6"], memo: ["R9"] };
-const FLAG_LABEL = { R4: "this ARR total", R7: "this ARR total", R8: "the relocation add-back", R6: "this capex assumption", R9: "the Key Risks section" };
+const CASE_RULES = {
+  rev: ["acme-amendment-language", "relocation-recurrence"],
+  lbo: ["capex-below-average"],
+};
+const FLAG_LABEL = {
+  "acme-amendment-language": "this ARR total",
+  "relocation-recurrence": "the relocation add-back",
+  "capex-below-average": "this capex assumption",
+};
 const ASK = {
-  R4: "Does the new software agreement add to the original, or replace it?",
-  R7: "Which document did that number come from?",
-  R8: "What historical invoices would you check before accepting that $4M as truly non-recurring?",
-  R6: "Why would this company suddenly need less capital to maintain its equipment after the buyout?",
-  R9: "Which of today's findings would a partner expect to read here?",
+  "acme-amendment-language": "Does the new software agreement add to the original, or replace it?",
+  "relocation-recurrence": "What historical invoices would you check before accepting that $4M as truly non-recurring?",
+  "capex-below-average": "Why would this company suddenly need less capital to maintain its equipment after the buyout?",
 };
 const blankForm = (id) => ({
   rev: { arr: "", addback: "accept", opened: [], open: "arr", result: null },
   lbo: { capex: "1.6", opened: [], open: "plan", escalated: false, result: null },
-  memo: { inc: { conc: true, crest: false, reloc: false, capex: true }, opened: [], open: null, result: null },
 }[id]);
 const num = (v) => Number(String(v).replace(/[^0-9.]/g, ""));
 const usd = (n) => "$" + Math.round(n).toLocaleString("en-US");
@@ -1109,18 +1013,14 @@ function evaluate(caseId, f, isVerified) {
   const v = [];
   const add = (id, msg) => v.push({ id, msg, ink: isVerified(id) });
   if (caseId === "rev") {
-    if (f.arr.trim() && !f.opened.includes("sw25")) add("R7", "That ARR came from management's schedule. You haven't opened the 2025 software agreement behind it.");
-    if (f.arr.trim() && num(f.arr) !== 110000) add("R4", num(f.arr) === 190000
+    if (f.arr.trim() && !f.opened.includes("sw25")) add("acme-amendment-language", "That ARR came from management's schedule. You haven't opened the 2025 software agreement behind it.");
+    if (f.arr.trim() && num(f.arr) !== 110000) add("acme-amendment-language", num(f.arr) === 190000
       ? "You added both contracts. §1.2 of the 2025 agreement replaces the MSA, so Crestline's ARR is $110,000, not $190,000."
       : `Check §1.2 of the 2025 agreement. It decides whether ${usd(num(f.arr))} is right.`);
-    if (f.addback === "accept") add("R8", "Relocation costs show up in the GL in 2022, 2023 and 2024, with the same vendor every year. The $4.0M isn't proven one-time.");
+    if (f.addback === "accept") add("relocation-recurrence", "Relocation costs show up in the GL in 2022, 2023 and 2024, with the same vendor every year. The $4.0M isn't proven one-time.");
   }
   if (caseId === "lbo") {
-    if (num(f.capex) < 3.0 && !f.escalated) add("R6", `${f.capex}% is less than half of the 4.0% history, and nothing in the data room explains the drop.`);
-  }
-  if (caseId === "memo") {
-    const missing = RISKS.filter((r) => r.required && !f.inc[r.id]);
-    if (missing.length) add("R9", `${missing.length === 1 ? "This finding isn't" : "These findings aren't"} in Key Risks yet: ${missing.map((r) => r.short).join(" and ")}.`);
+    if (num(f.capex) < 3.0 && !f.escalated) add("capex-below-average", `${f.capex}% is less than half of the 4.0% history, and nothing in the data room explains the drop.`);
   }
   return v;
 }
@@ -1128,15 +1028,11 @@ function evaluate(caseId, f, isVerified) {
 
 /* ============================= RESULTS ================================ */
 const PRACTICE = {
-  R1: "A data room with three versions of the same customer contract",
-  R2: "A “one-time” IT migration that also shows up in last year's GL",
-  R3: "An add-back the seller insists on, backed by only partial invoices",
-  R4: "A customer with an MSA and two amendments, only one of which supersedes",
-  R5: "Two contracts with one customer, overlapping scope and no superseding clause",
-  R6: "A management case where capex falls because of a claimed equipment lease",
-  R7: "A management ARR figure with no contract in the data room",
-  R8: "A severance add-back with no invoice-level detail",
-  R9: "An IC memo draft that sums up the flags in one sentence",
+  "acme-amendment-language": "A customer with an MSA and two amendments, only one of which supersedes",
+  "customer-3-add-on": "An add-on that explicitly remains in addition to the original order form",
+  "relocation-recurrence": "A one-time IT migration that also shows up in last year's GL",
+  "legal-fee-recurrence": "A legal-fee add-back with the same pattern in prior years",
+  "capex-below-average": "A management case where capex falls because of a claimed equipment lease",
 };
 
 
@@ -1688,7 +1584,7 @@ function WorkMapPage() {
 
 /* ============================== TEACH ================================= */
 function TeachPage() {
-  const { teach, setTeach, isVerified, sel, fillDemo, go, voice, settings, ruleSources, announce } = useApp();
+  const { teach, setTeach, isVerified, sel, fillDemo, go, voice, ruleSources, announce } = useApp();
   const [caseId, setCaseId] = useState(CASES[0].id);
   const [openReplay, setOpenReplay] = useState({});
   const c = CASES.find((x) => x.id === caseId);
@@ -1727,7 +1623,7 @@ function TeachPage() {
   }
 
   function stop(vsIn, when) {
-    const order = ["R4", "R8", "R7", "R6", "R9"];
+    const order = ["acme-amendment-language", "relocation-recurrence", "capex-below-average"];
     const vs = [...vsIn].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
     const labels = [...new Set(vs.map((v) => FLAG_LABEL[v.id]))];
     const asks = [...new Set(vs.map((v) => ASK[v.id]))];
@@ -1750,19 +1646,18 @@ function TeachPage() {
     const blocking = v.filter((x) => x.ink);
     v.filter((x) => !x.ink).forEach(() => pushMsg({ who: "tutor", kind: "general", text: `I'm not sure about this part. ${EXPERT.first} hasn't verified the rule, so I won't block you. Ask the deal team.` }));
     if (blocking.length) {
-      setForm({ result: { ok: false, text: caseId === "memo" ? "Not queued. The tutor held the memo." : "Not saved. The tutor stopped this before the debt schedule ran." } });
+      setForm({ result: { ok: false, text: "Not saved. The tutor stopped this before the debt schedule ran." } });
       stop(blocking, "on save");
       return;
     }
     if (caseId === "rev") { setForm({ result: { ok: true, text: "Saved. Debt schedule running on adjusted EBITDA of $31.2M." } }); finish("Saved. Crestline is in at $110,000 ARR and the $4.0M relocation add-back is flagged for QoE."); announce("Inputs saved."); }
     if (caseId === "lbo") { setForm({ result: { ok: true, text: `IRR calculated: ${irrAt(form.capex)} over 5 years.` } }); finish(`The IRR runs on ${form.capex}% maintenance capex${form.escalated ? ", with the escalation queued" : ""}.`); announce("IRR calculated."); }
-    if (caseId === "memo") { setForm({ result: { ok: true, text: "Queued for the partners · simulated. Nothing leaves this demo." } }); finish("Queued. Every flag from this deal is in Key Risks with its dollar impact."); announce("Memo queued for the partners, simulated."); }
   }
 
   function escalate() {
     if (num(form.capex) < 3.0) {
       setForm({ escalated: true, result: { ok: true, text: "Escalation queued for the deal team · simulated." } });
-      pushMsg({ who: "tutor", tone: "good", kind: "grounded", text: `Good. That's what ${EXPERT.first} does when management's capex is below history and nothing explains it. Run the model now; the escalation travels with it.`, rules: ["R6"] });
+      pushMsg({ who: "tutor", tone: "good", kind: "grounded", text: `Good. That's what ${EXPERT.first} does when management's capex is below history and nothing explains it. Run the model now; the escalation travels with it.`, rules: ["capex-below-average"] });
     } else pushMsg({ who: "tutor", kind: "exact", text: `Your input of ${form.capex}% already matches the 4.0% history, so there's nothing to escalate.` });
   }
 
@@ -1789,8 +1684,7 @@ function TeachPage() {
   const debt = form.addback === "accept" ? "$193.6M" : "$171.6M";
   const consequence = caseId === "rev"
     ? `Saves Crestline ARR ${form.arr.trim() ? usd(num(form.arr)) : "(empty)"}, adjusted EBITDA ${adj} and debt capacity ${debt} at 5.5×, then runs the debt schedule.`
-    : caseId === "lbo" ? `Runs the debt schedule and 5-year IRR at ${form.capex || "?"}% maintenance capex (projected IRR ${irrAt(form.capex)}).`
-    : `Queues the memo for the partners with ${Object.values(form.inc).filter(Boolean).length} Key Risks. Simulated: nothing leaves this demo.`;
+    : `Runs the debt schedule and 5-year IRR at ${form.capex || "?"}% maintenance capex (projected IRR ${irrAt(form.capex)}).`;
 
   return (
     <>
@@ -1802,34 +1696,14 @@ function TeachPage() {
           {CASES.map((x) => <button key={x.id} role="tab" aria-selected={x.id === caseId} onClick={() => setCaseId(x.id)}>
             {teach.saved[x.id] && <Check size={12} aria-label="done" style={{ marginRight: 4 }} />}{x.label}</button>)}
         </div>
-        <span className="t-sec">Tutor speaks English. {EXPERT.first}'s words are translated from German{settings.quoteLang === "de" ? "; showing originals" : ""}.</span>
+        <span className="t-sec">Tutor and expert evidence use English in this seeded demo.</span>
       </div>
 
       <div className="grid g-main">
         <Card title={`${TRAINEE.first}'s screen`} extra={<span className="t-sec">{c.stage}</span>}>
           <div className="stack">
             <div className="scr">
-              <div className="scr-bar"><span>{TEACH_DEAL.code} data room</span><span>{caseId === "memo" ? "IC memo draft v3.docx" : "LBO model v3.xlsx"}, {TRAINEE.name}</span></div>
-              {caseId === "memo" ? (
-                <div className="scr-body">
-                  <div className="scr-title">{TEACH_DEAL.code}: Investment Committee memo</div>
-                  <div className="memo-sec"><h4>1. Deal thesis</h4><p>Practice management software for 2,400 dental clinics. 92% gross retention, pricing headroom and a fragmented add-on market.</p></div>
-                  <div className="memo-sec"><h4>2. Key financials (diligenced)</h4><p>Adjusted EBITDA $31.2M after removing the disputed relocation add-back. Entry at 11.0×. Sponsor IRR {irrAt(teach.forms.lbo?.capex ?? "4.0")} over 5 years at the modeled capex.</p></div>
-                  <div className="memo-sec"><h4>3. Key risks</h4>
-                    {RISKS.map((r) => (
-                      <label key={r.id} className="risk">
-                        <input type="checkbox" checked={!!form.inc[r.id]} disabled={locked} onChange={() => setForm({ inc: { ...form.inc, [r.id]: !form.inc[r.id] }, result: null })} />
-                        <span>{r.text}{r.required && <span style={{ display: "block", color: "var(--scr-text-2)" }}>Flagged during model inputs</span>}</span>
-                      </label>))}
-                  </div>
-                  <div className="scr-actions">
-                    <button className="btn capsule" disabled={locked} onClick={save}>Queue memo for the partners</button>
-                    {saved && <button className="btn" onClick={reset}>Try again</button>}
-                  </div>
-                  <p className="t-sec" style={{ marginTop: 6 }}>{consequence}</p>
-                  {form.result && <div className={"scr-msg " + (form.result.ok ? "good" : "bad")} role="status">{form.result.text}</div>}
-                </div>
-              ) : (
+              <div className="scr-bar"><span>{TEACH_DEAL.code} data room</span><span>LBO model v3.xlsx, {TRAINEE.name}</span></div>
                 <div className="wb">
                   <div className="wb-doc">
                     <div className="wb-h"><span>Data room</span><span>{form.opened.length} of {docs.length} opened</span></div>
@@ -1867,9 +1741,8 @@ function TeachPage() {
                     {form.result && <div className={"scr-msg " + (form.result.ok ? "good" : "bad")} role="status">{form.result.text}</div>}
                   </div>
                 </div>
-              )}
             </div>
-            <p className="t-sec">{caseId === "memo" ? "Controlled demo, so the tutor can hold the memo. In Word, the same check runs in an add-in before the memo is shared." : "Controlled demo workbench, so the tutor can hold the save. In the firm's Excel model, the same check runs in an add-in before the debt schedule refreshes."}</p>
+            <p className="t-sec">Controlled demo workbench, so the tutor can hold the save. In the firm's Excel model, the same check runs in an add-in before the debt schedule refreshes.</p>
           </div>
         </Card>
 
@@ -1963,71 +1836,14 @@ function ResultsPage() {
   );
 }
 
-/* ========================= COMPARE (stretch) ========================== */
-const COMPARE = [
-  { n: 1, s: "Spread files by latest version date", t: "Spread files folder by folder", diff: true,
-    toS: `${EXPERT2.first} works the bankers' folders in order. What does that miss?`, aS: "sb1",
-    toT: `${EXPERT.first} sorts the data room by latest version date. Why go folder by folder?`, aT: "th1" },
-  { n: 2, s: "Opened the GL detail before the bridge", t: "Opened the GL detail before the bridge" },
-  { n: 3, s: "Cut the $1.2M consulting add-back to $0", t: "Cut the $1.2M consulting add-back to $0" },
-  { n: 4, s: "Flagged the consulting line for QoE", t: "Flagged the consulting line for QoE" },
-  { n: 5, s: "Meridian ARR at $260,000", t: "Meridian ARR at $260,000" },
-  { n: 6, s: "Modeled 4.1% historical capex and escalated", t: "Kept management's 1.5% capex", diff: true,
-    toS: `${EXPERT2.first} kept 1.5% because the new trucks are under warranty. Does a warranty change your view?`, aS: "sb2",
-    toT: `${EXPERT.first} replaced management's 1.5% capex with the 4.1% history. Why did you keep 1.5%?`, aT: "th2" },
-  { n: 7, s: "3 items in Key Risks", t: "2 items in Key Risks", diff: true, toS: null, toT: null },
-];
-
-function ComparePage() {
-  const [asked, setAsked] = useState({});
-  const [res, setRes] = useState({});
-  const diffs = COMPARE.filter((r) => r.diff && r.toS);
-  return (
-    <>
-      <PageHead title="Two experts, one task"
-        lede={`${EXPERT2.name} (${EXPERT2.role.toLowerCase()}) worked the same ${DEAL.code} data room. The apprentice lines up both sessions step by step and asks each expert about the places they differ.`} />
-      <div className="stack">
-        <Card title="Step by step">
-          <table className="tbl">
-            <thead><tr><th style={{ width: 56 }}>Step</th><th>{EXPERT.first}</th><th>{EXPERT2.first}</th><th style={{ width: 200 }}>Match</th></tr></thead>
-            <tbody>{COMPARE.map((r) => (
-              <tr key={r.n} className={r.diff ? "diff" : ""}>
-                <td data-label="Step" className="strong">{r.n}</td>
-                <td data-label={EXPERT.first} className="fold">{r.s}</td>
-                <td data-label={EXPERT2.first} className="fold">{r.t}</td>
-                <td data-label="Match">{r.diff ? <Badge tone="pending" icon={Clock}>Different</Badge> : <Evidence level="external" label="Second expert agrees" />}</td>
-              </tr>))}
-            </tbody>
-          </table>
-        </Card>
-        {diffs.map((r) => (
-          <Card key={r.n} title={`Step ${r.n}: ${STEPS[r.n - 1].title.toLowerCase()}`}
-            extra={!asked[r.n] ? <button className="btn compact" onClick={() => setAsked((a) => ({ ...a, [r.n]: true }))}><Volume2 size={13} aria-hidden /> Ask both experts</button>
-              : res[r.n] ? <Badge icon={Check}>Decided</Badge> : <Awaiting>Awaiting a decision</Awaiting>}>
-            {asked[r.n] ? (
-              <div className="stack">
-                <div className="grid g2">
-                  <div className="stack tight"><span className="t-cap">Asked {EXPERT.first}</span><span className="strong">{r.toS}</span><Quote id={r.aS} /></div>
-                  <div className="stack tight"><span className="t-cap">Asked {EXPERT2.first}</span><span className="strong">{r.toT}</span><Quote id={r.aT} /></div>
-                </div>
-                <div className="row">
-                  <span className="t-sec">How should the Work Map read?</span>
-                  <div className="seg" role="radiogroup" aria-label={`Resolution for step ${r.n}`}>
-                    {[`Keep ${EXPERT.first}'s way`, "Keep both as valid", "Ask the deal team"].map((o) => (
-                      <button key={o} role="radio" aria-checked={res[r.n] === o} onClick={() => setRes((x) => ({ ...x, [r.n]: o }))}>{o}</button>))}
-                  </div>
-                </div>
-                {res[r.n] && <p className="t-sec">Recorded: {res[r.n]}. Both experts review this before it goes into the map.</p>}
-              </div>
-            ) : <p className="t-sec">Ask both experts why they differ. Their answers are recorded in their own words.</p>}
-          </Card>))}
-      </div>
-    </>
-  );
-}
-
 /* ======================= AGENT EXPORT (stretch) ======================= */
-const STOP_TO = { R7: "Request the source from the bankers and mark the number unverified", R8: "Send to QoE review with the invoices", R3: "Send to the QoE team with the invoices attached", R5: "Send to legal" };
+const STOP_TO = {
+  "acme-amendment-language": "Send unclear contract language to legal",
+  "customer-3-add-on": "Verify the add-on language before summing fees",
+  "relocation-recurrence": "Send to QoE review with the invoices",
+  "legal-fee-recurrence": "Send to QoE review with prior-year invoices",
+  "capex-below-average": "Request support or escalate to QoE",
+};
 
 function buildExport(isVerified, claimText, ruleSources, quotes) {
   const ok = RULES.filter((r) => isVerified(r.id));
@@ -2199,7 +2015,6 @@ function NavList({ onPick }) {
       <NavItem {...itemProps} id="teach" label={`Coach ${TRAINEE.first}`} extra={<span className="t-sec">{sel.handled}/{sel.casesTotal}</span>} />
       <NavItem {...itemProps} id="results" label="Results" />
       <div className="nav-label">More</div>
-      <NavItem {...itemProps} id="compare" label="Compare experts" top />
       <NavItem {...itemProps} id="export" label="Agent export" top />
       <NavItem {...itemProps} id="trust" label="Trust and privacy" top />
     </nav>
@@ -2207,7 +2022,7 @@ function NavList({ onPick }) {
 }
 
 function Sidebar() {
-  const { voice, setVoice } = useApp();
+  const { voice, setVoice, saveStatus } = useApp();
   return (
     <aside className="sidenav" aria-label="Sidebar">
       <div className="brand"><span className="brand-mark" aria-hidden><ShieldCheck size={13} /></span>Apprentice</div>
@@ -2219,6 +2034,7 @@ function Sidebar() {
       <div className="side-foot">
         <button className="btn compact" aria-pressed={voice} onClick={() => setVoice((v) => !v)}>{voice ? <Volume2 size={13} aria-hidden /> : <VolumeX size={13} aria-hidden />} Voice preview</button>
         <span className="t-cap">Browser speech stands in for ElevenAgents.</span>
+        <span className="t-cap" role="status">{saveStatus}</span>
       </div>
     </aside>
   );
@@ -2254,19 +2070,85 @@ export default function App() {
   const [voice, setVoice] = useState(false);
   const [teach, setTeach] = useState({ log: [], saved: {}, preds: {}, forms: {}, msgs: {} });
   const [settings, setSettings] = useState({
-    theme: "system", quoteLang: "en", expertLang: "German", tutorLang: "English", retention: "90",
+    theme: "system", quoteLang: "en", expertLang: "English", tutorLang: "English", retention: "90",
     redact: { PERSON: true, US_SSN: true, COMPENSATION: true, EMAIL_ADDRESS: true, PHONE_NUMBER: true, US_BANK_NUMBER: true },
   });
   const [systemDark, setSystemDark] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-color-scheme: dark)").matches);
   const [confirm, setConfirm] = useState(null);
   const [sheet, setSheet] = useState(false);
   const [live, setLive] = useState("");
+  const [stateReady, setStateReady] = useState(false);
+  const [saveStatus, setSaveStatus] = useState("Restoring session…");
   const firstRender = useRef(true);
+  const apprenticeSessionId = useRef(null);
+
+  const getApprenticeSessionId = useCallback(() => {
+    if (apprenticeSessionId.current) return apprenticeSessionId.current;
+    const storageKey = "apprentice-session-id";
+    try {
+      const stored = window.localStorage.getItem(storageKey);
+      if (stored) apprenticeSessionId.current = stored;
+      else {
+        apprenticeSessionId.current = window.crypto.randomUUID();
+        window.localStorage.setItem(storageKey, apprenticeSessionId.current);
+      }
+    } catch {
+      apprenticeSessionId.current = window.crypto.randomUUID();
+    }
+    return apprenticeSessionId.current;
+  }, []);
 
   useEffect(() => {
     const m = window.matchMedia?.("(prefers-color-scheme: dark)"); if (!m) return;
     const f = (e) => setSystemDark(e.matches); m.addEventListener?.("change", f); return () => m.removeEventListener?.("change", f);
   }, []);
+
+  const restoreState = useCallback((state) => {
+    if (!state || state.version !== 1) return false;
+    setPage(state.page || "overview");
+    setCap({ ...initCap(), ...(state.cap || {}), running: false });
+    setGaps(state.gaps || {});
+    setClaims(state.claims || {});
+    setSigned(!!state.signed);
+    setStruck(state.struck || {});
+    setCustom(state.custom || {});
+    setMapStep(Number.isInteger(state.mapStep) ? state.mapStep : 1);
+    setTeach({ log: [], saved: {}, preds: {}, forms: {}, msgs: {}, ...(state.teach || {}) });
+    setSettings((current) => ({ ...current, ...(state.settings || {}) }));
+    return true;
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const sessionId = getApprenticeSessionId();
+    const storageKey = `apprentice-state:${sessionId}`;
+
+    async function restore() {
+      let restored = false;
+      try {
+        const local = window.localStorage.getItem(storageKey);
+        if (local) restored = restoreState(JSON.parse(local));
+      } catch { /* ignore invalid local demo state */ }
+
+      try {
+        const response = await fetch(`/api/apprentice/state?session_id=${encodeURIComponent(sessionId)}`);
+        if (response.ok) {
+          const payload = await response.json();
+          if (!cancelled && payload.state) restored = restoreState(payload.state);
+          if (!cancelled) setSaveStatus(payload.store === "supabase" ? "Synced to Supabase" : restored ? "Restored locally" : "Ready · memory fallback");
+        } else if (!cancelled) {
+          setSaveStatus(restored ? "Restored locally" : "Ready · local only");
+        }
+      } catch {
+        if (!cancelled) setSaveStatus(restored ? "Restored locally" : "Ready · local only");
+      } finally {
+        if (!cancelled) setStateReady(true);
+      }
+    }
+
+    void restore();
+    return () => { cancelled = true; };
+  }, [getApprenticeSessionId, restoreState]);
   // On navigation, move focus to the new page's heading.
   useEffect(() => {
     if (firstRender.current) { firstRender.current = false; return; }
@@ -2282,28 +2164,70 @@ export default function App() {
   const isVerified = (id) => ruleEvidence(id) === "verified";
   const sel = selectAll({ cap, gaps, claims, signed, teach, ruleEvidence });
 
+  const persistedState = useMemo(() => ({
+    version: 1,
+    page,
+    cap: { ...cap, running: false },
+    gaps,
+    claims,
+    signed,
+    struck,
+    custom,
+    mapStep,
+    teach,
+    settings,
+  }), [page, cap, gaps, claims, signed, struck, custom, mapStep, teach, settings]);
+
+  useEffect(() => {
+    if (!stateReady) return;
+    const sessionId = getApprenticeSessionId();
+    const storageKey = `apprentice-state:${sessionId}`;
+    const serialized = JSON.stringify(persistedState);
+    window.localStorage.setItem(storageKey, serialized);
+
+    const timer = window.setTimeout(async () => {
+      setSaveStatus("Saving…");
+      try {
+        const response = await fetch(`/api/apprentice/state?session_id=${encodeURIComponent(sessionId)}`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ state: persistedState }),
+        });
+        const payload = response.ok ? await response.json() : null;
+        setSaveStatus(payload?.store === "supabase" ? "Synced to Supabase" : "Saved locally");
+      } catch {
+        setSaveStatus("Saved locally");
+      }
+    }, 1200);
+
+    return () => window.clearTimeout(timer);
+  }, [getApprenticeSessionId, persistedState, stateReady]);
+
   const go = useCallback((p) => setPage(p), []);
   const addQuote = (k, q) => setCustom((c) => ({ ...c, [k]: q }));
   const announce = (text) => { setLive(""); setTimeout(() => setLive(text), 30); };
   const resetAll = () => {
     setCap(initCap()); setGaps({}); setClaims({}); setSigned(false); setStruck({}); setCustom({});
     setTeach({ log: [], saved: {}, preds: {}, forms: {}, msgs: {} }); setMapStep(5); setPage("overview");
+    const sessionId = getApprenticeSessionId();
+    window.localStorage.removeItem(`apprentice-state:${sessionId}`);
+    void fetch(`/api/apprentice/state?session_id=${encodeURIComponent(sessionId)}`, { method: "DELETE" });
   };
   const fillDemo = () => {
     setCap((c) => (c.done ? c : runToEnd(initCap())));
     setGaps(Object.fromEntries(GAPS.map((g) => [g.id, "answered"])));
     setClaims(Object.fromEntries(RULES.map((r) => [r.id, r.draftWrong ? { status: "corrected", text: r.text, quote: r.correction } : { status: "confirmed", text: r.text }])));
-    setSigned(true); setPage("map"); announce("Finished demo session loaded. 9 rules verified.");
+    setSigned(true); setPage("map"); announce(`Finished demo session loaded. ${RULES.length} canonical rules verified.`);
   };
   const askReset = (kind = "reset") => setConfirm(kind);
 
   const ctx = {
     page, go, cap, setCap, gaps, setGaps, claims, setClaims, signed, setSigned, struck, setStruck, quotes, addQuote,
     claimText, ruleSources, ruleEvidence, isVerified, sel, mapStep, setMapStep, teach, setTeach, settings, setSettings,
-    voice, setVoice, fillDemo, resetAll, askReset, announce,
+    voice, setVoice, fillDemo, resetAll, askReset, announce, saveStatus,
   };
   const Page = { overview: OverviewPage, capture: CapturePage, debrief: DebriefPage, map: WorkMapPage, teach: TeachPage,
-    results: ResultsPage, compare: ComparePage, export: ExportPage, trust: TrustPage }[page] || NotFoundPage;
+    results: ResultsPage, export: ExportPage, trust: TrustPage }[page] || NotFoundPage;
   const dark = settings.theme === "dark" || (settings.theme === "system" && systemDark);
 
   return (
