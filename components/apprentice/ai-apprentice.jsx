@@ -2,7 +2,7 @@
 
 /* eslint-disable react/no-unescaped-entities */
 
-import { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, useSyncExternalStore, createContext, useContext } from "react";
 import {
   MonitorUp, Play, Pause, FastForward, EyeOff, Check, X, PenLine, Download, Copy, RotateCcw, AlertTriangle,
   Lock, Square, Volume2, VolumeX, Keyboard, BookOpen, MessageSquare, Mic, Search, Hand, Bot, Database,
@@ -24,6 +24,7 @@ import {
 import { evaluateQuestionSlot, QUESTION_GOVERNOR_POLICY } from "@/lib/question-governor";
 import { LiveInterviewer } from "@/components/apprentice/live-interviewer";
 import { sessionFetch } from "@/lib/session-client";
+import { ATLAS_FILES, BEACON_FILES, DocFace, fileById } from "./work-files";
 
 /* ------------------------------------------------------------------
    The AI Apprentice: starter UI, rebuilt on the Mono design practices.
@@ -190,6 +191,7 @@ const CSS = `
 .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .g-main{grid-template-columns:minmax(0,1fr) 360px}
 .g-wide{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
+.g-files{grid-template-columns:280px minmax(0,1fr);align-items:start}
 .g-map{grid-template-columns:minmax(0,.8fr) minmax(0,1.5fr)}
 .g-ov{grid-template-columns:minmax(0,1fr) 320px}
 .divider{height:1px;background:var(--line)}
@@ -323,6 +325,56 @@ button.time{color:var(--action);background:var(--action-wash);text-decoration:un
 .scr-msg.bad{background:var(--warning-wash);border-color:var(--warning);color:var(--text)}
 .scr-msg.good{background:var(--success-wash);border-color:var(--success);color:var(--text)}
 
+/* ---------- rendered work files: workbook and PDF ---------- */
+.file-face{border:1px solid var(--scr-line);border-radius:6px;overflow:hidden;background:#fff;color:#1a1d21}
+.ap.dark .file-face{background:#1c1f24;color:#e8eaed;border-color:#3c424a}
+.xl-chrome{display:flex;align-items:center;gap:8px;padding:4px 8px;background:#217346;color:#fff;font-size:11px;font-weight:600}
+.xl-formula{display:grid;grid-template-columns:52px minmax(0,1fr);border-bottom:1px solid #d0d7de;background:#f6f8fa;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px}
+.ap.dark .xl-formula{background:#25282e;border-color:#3c424a}
+.xl-name{padding:4px 6px;border-right:1px solid #d0d7de;color:#57606a;font-weight:600}
+.ap.dark .xl-name{border-color:#3c424a;color:#9aa3ad}
+.xl-fx{padding:4px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xl-wrap{overflow:auto;max-height:420px}
+.xl{border-collapse:collapse;width:max-content;min-width:100%;font-size:11px;line-height:14px;font-variant-numeric:tabular-nums}
+.xl th,.xl td{border:1px solid #d0d7de;padding:3px 6px;white-space:nowrap}
+.ap.dark .xl th,.ap.dark .xl td{border-color:#3c424a}
+.xl th{background:#f3f4f6;color:#57606a;font-weight:600;text-align:center;position:sticky;top:0}
+.ap.dark .xl th{background:#2a2e34;color:#b3bbc4}
+.xl .rn{background:#f3f4f6;color:#57606a;text-align:right;width:28px;position:sticky;left:0}
+.ap.dark .xl .rn{background:#2a2e34;color:#b3bbc4}
+.xl td.num{text-align:right;font-variant-numeric:tabular-nums}
+.xl tr.hl td{background:#fff4cc}
+.ap.dark .xl tr.hl td{background:#3a3218}
+.xl tr.total td{font-weight:700;border-top:2px solid #1a1d21}
+.ap.dark .xl tr.total td{border-top-color:#e8eaed}
+.xl-tabs{display:flex;gap:2px;padding:4px 6px;background:#f3f4f6;border-top:1px solid #d0d7de;overflow:auto}
+.ap.dark .xl-tabs{background:#25282e;border-color:#3c424a}
+.xl-tabs button{height:22px;padding:0 10px;border-radius:4px 4px 0 0;border:1px solid transparent;font-size:11px;color:#1a1d21}
+.ap.dark .xl-tabs button{color:#e8eaed}
+.xl-tabs button[aria-selected="true"]{background:#fff;border-color:#d0d7de;border-bottom-color:#fff;font-weight:600}
+.ap.dark .xl-tabs button[aria-selected="true"]{background:#1c1f24;border-color:#3c424a;border-bottom-color:#1c1f24}
+.pdf-page{background:#fff;color:#1a1d21;padding:16px 18px 20px;min-height:280px;box-shadow:inset 0 0 0 1px #e6e8eb}
+.ap.dark .pdf-page{background:#f4f1ea;color:#1a1d21}
+.pdf-banner{display:flex;justify-content:space-between;gap:8px;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#8a3b12;border-bottom:2px solid #1a1d21;padding-bottom:6px;margin-bottom:10px;font-weight:700}
+.pdf-title{font-size:15px;line-height:20px;font-weight:700;margin-bottom:2px}
+.pdf-sub{font-size:11px;color:#3d4450;margin-bottom:10px}
+.pdf-meta{display:grid;grid-template-columns:110px minmax(0,1fr);gap:2px 8px;font-size:11px;margin-bottom:12px}
+.pdf-meta dt{color:#5c6570;font-weight:600}
+.pdf-clause{margin:0 0 8px;font-size:11.5px;line-height:16px}
+.pdf-clause strong{font-weight:700}
+.pdf-clause.hl{background:#fff4cc;padding:4px 6px;border-left:3px solid #8a3b12}
+.pdf-foot{display:flex;justify-content:space-between;margin-top:14px;padding-top:6px;border-top:1px solid #c8ccd2;font-size:9px;color:#5c6570}
+.file-list{display:flex;flex-direction:column;gap:2px}
+.file-list button{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;width:100%;text-align:left;padding:8px;border-radius:8px}
+.file-list button:hover{background:var(--card-2)}
+.file-list button[aria-pressed="true"]{background:var(--action-wash);color:var(--action)}
+.file-ext{font-size:10px;font-weight:700;letter-spacing:.04em;padding:1px 5px;border-radius:3px;background:var(--card-2);color:var(--text-2)}
+.file-ext.xlsx{background:#e5f4ea;color:#0d5c2e}
+.file-ext.pdf{background:#fde8e6;color:#8a221c}
+.file-ext.docx{background:#e7f0fb;color:#0b4f8a}
+.scr.compact .xl-wrap{max-height:220px}
+.scr.compact .pdf-page{min-height:0;padding:12px}
+
 /* ---------- work map ---------- */
 .track{position:relative;height:64px;margin:0 16px}
 .track-line{position:absolute;left:0;right:0;top:22px;height:2px;background:var(--line)}
@@ -397,7 +449,7 @@ button.time{color:var(--action);background:var(--action-wash);text-decoration:un
   .g-main{grid-template-columns:minmax(0,1fr) 320px}
 }
 @media (max-width:1100px){
-  .g-main,.g-wide,.g-map,.g-ov{grid-template-columns:minmax(0,1fr)}
+  .g-main,.g-wide,.g-map,.g-ov,.g-files{grid-template-columns:minmax(0,1fr)}
   .tbl thead{display:none}
   .tbl tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:8px 0;border-top:1px solid var(--line)}
   .tbl td{padding:0;border:0}
@@ -486,18 +538,8 @@ const CASES = [
 ];
 
 const TEACH_DOCS = {
-  rev: [
-    { id: "arr", name: "4.2 ARR schedule (management).xlsx", lines: [["Crestline Health: MSA $80,000 + Software Agreement $110,000", true], ["Crestline Health ARR: $190,000"], ["Prepared by management, Mar 2025"]] },
-    { id: "msa", name: "3.1 Crestline Health MSA (Feb 2023).pdf", lines: [["Schedule A: annual fees $80,000"], ["Term: 3 years, renews automatically"]] },
-    { id: "sw25", name: "3.1 Crestline Health Software Agreement (Jan 2025).pdf", lines: [["§1.2 This Agreement supersedes and replaces the Master Services Agreement dated 9 February 2023, including Schedule A.", true], ["Annual fees: $110,000"]] },
-    { id: "bridge", name: "6.1 Adjusted EBITDA bridge (management).xlsx", lines: [["Reported EBITDA 2024: $31.2M"], ["Relocation, one-time: +$4.0M", true], ["Adjusted EBITDA: $35.2M"]] },
-    { id: "gl", name: "5.2 GL detail 2022–2024, facilities.xlsx", lines: [["Relocation and facility moves, 2022: $1.4M"], ["2023: $1.9M"], ["2024: $1.6M"], ["Vendor: Summit Relocation Group, every year", true]] },
-  ],
-  lbo: [
-    { id: "plan", name: "7.3 Capex plan (management case).xlsx", lines: [["Maintenance capex 2026–2030: 1.6% of revenue", true], ["Note: “efficiency program”"]] },
-    { id: "far", name: "7.5 Fixed asset register, history.xlsx", lines: [["2021: 3.8% of revenue"], ["2022: 4.2%"], ["2023: 3.9%"], ["2024: 4.1%"], ["Average: 4.0%", true]] },
-    { id: "deck", name: "2.1 Management presentation.pdf", lines: [["“Modernized equipment requires less maintenance”"], ["No lease, warranty or vendor terms attached", true]] },
-  ],
+  rev: ["arr", "msa", "sw25", "bridge", "gl"].map((id) => BEACON_FILES.find((f) => f.id === id)),
+  lbo: ["plan", "far", "deck"].map((id) => BEACON_FILES.find((f) => f.id === id)),
 };
 
 /* =========================== helpers ================================== */
@@ -669,42 +711,31 @@ function toggleOff(c, how = "button") {
 }
 
 /* ======================== screen at time t ============================= */
-const VDR_ROWS = [
-  ["3.1 Acme MSA Amendment 2.pdf", "3 Customer contracts", "14 Mar 2025", 20250314],
-  ["6.1 Adjusted EBITDA bridge (mgmt).xlsx", "6 Financials", "02 Mar 2025", 20250302],
-  ["7.3 Capex history.xlsx", "7 Operations", "28 Feb 2025", 20250228],
-  ["5.2 Relocation invoices 2021–2023.xlsx", "5 Accounting", "20 Feb 2025", 20250220],
-  ["3.3 Customer 3 Add-On.pdf", "3 Customer contracts", "05 Jan 2025", 20250105],
-  ["3.1 Acme MSA.pdf", "3 Customer contracts", "11 Jan 2023", 20230111],
-];
+const VDR_ROWS = ATLAS_FILES.map((file) => [file.name, file.folder, file.dateLabel, file.sort]);
 
 // What was on Sabine's screen in the canonical seeded session.
 function screenAt(t) {
   if (t < 8) return { view: "index", sorted: true };
   if (t < 40) return { view: "work", label: "Adjusted EBITDA bridge",
-    doc: { name: "6.1 Adjusted EBITDA bridge (management).xlsx", lines: [["Management Adjusted EBITDA"], ["One-time relocation: +$4.0M", true], ["Legal fees: one-time"], ["Draft — management"]], person: "Seller finance team" },
+    doc: fileById("a-bridge"), sheet: "Bridge",
     rows: [
       { key: "addback", label: "Add-back: relocation", v: "$4.0M", sub: "From management's bridge" },
-      { key: "ebitda", label: "Adjusted EBITDA", v: "$35.2M", calc: true },
+      { key: "ebitda", label: "Adjusted EBITDA", v: "$23.85M", calc: true },
     ] };
   if (t < 118) return { view: "work", label: "Top-20 contracts",
-    doc: t < 64
-      ? { name: "3.1 Acme MSA.pdf", lines: [["Order Form #1"], ["Annual subscription fee: $80,000", true]], person: "Acme signatory" }
-      : { name: "3.1 Acme MSA Amendment 2.pdf", lines: [["This Amendment supersedes and replaces Order Form #1.", true], ["Annual subscription fee: $110,000"]], person: "Acme signatory" },
+    doc: t < 64 ? fileById("a-msa") : fileById("a-amd"),
     rows: [
       { key: "arr", label: "ARR: Acme", v: t >= 95.4 ? "$110,000" : t >= 88.2 ? "$190,000" : "–", sub: t >= 95.4 ? "Amendment 2 replaces Order Form #1" : "Awaiting validation" },
       { key: "arrtop", label: "Top-20 customer ARR", v: t >= 95.4 ? "$13.55M" : "$13.63M", calc: true },
     ] };
   if (t < 160) return { view: "work", label: "Management add-backs",
-    doc: t < 150.3
-      ? { name: "6.1 Management Add-Backs.xlsx", lines: [["Relocation, one-time: $4.0M", true], ["Prepared by management"]], person: "Seller finance team" }
-      : { name: "5.2 Relocation invoices 2021–2023.xlsx", lines: [["2021 relocation expense"], ["2022 relocation expense"], ["2023 relocation expense", true]], person: "Seller finance team" },
+    doc: t < 150.3 ? fileById("a-addbacks") : fileById("a-reloc"),
     rows: [
       { key: "addback", label: "Relocation add-back", v: "$4.0M", sub: t >= 150.3 ? "Flagged for QoE review" : "Management case" },
       { key: "qoe", label: "QoE status", v: t >= 150.3 ? "Flagged" : "–" },
     ] };
   return { view: "work", label: "LBO assumptions",
-    doc: { name: "7.3 Capex history.xlsx", lines: [["2021: 4.0% of revenue"], ["2022: 4.2%"], ["2023: 4.1%"], ["3-year average: 4.1%", true], ["Management forecast: 1.8%"]], person: "Seller finance team" },
+    doc: fileById("a-capex"),
     rows: [
       { key: "capex", label: "Maintenance capex, % of revenue", v: t >= 199.6 ? "4.1%" : "1.8%", sub: t >= 199.6 ? "Historical average; QoE escalation required" : "Management forecast" },
       { key: "qoe", label: "Commit status", v: t >= 205.6 ? "Held for review" : "Not saved" },
@@ -838,7 +869,7 @@ function Screen({ t, off = false, compact = false, highlight, redact }) {
   const r = redact || { PERSON: true };
   const rows = s.view === "index" ? [...VDR_ROWS].sort((a, b) => (s.sorted ? b[3] - a[3] : a[1].localeCompare(b[1]))) : [];
   return (
-    <div className={"scr" + (compact ? " compact" : "")} role="img" aria-label={`${EXPERT.first}'s screen at ${fmt(t)}${changed ? ", changed: " + changed : ""}`}>
+    <div className={"scr" + (compact ? " compact" : "")} role="group" aria-label={`${EXPERT.first}'s screen at ${fmt(t)}${changed ? ", changed: " + changed : ""}`}>
       <div className="scr-bar"><span>{DEAL.code} data room</span><span>LBO model v14.xlsx</span></div>
       {s.view === "index" ? (
         <div className="scr-body">
@@ -852,9 +883,7 @@ function Screen({ t, off = false, compact = false, highlight, redact }) {
         <div className="wb">
           <div className={"wb-doc" + (changed === "doc" ? " changed" : "")}>
             <div className="wb-h"><span>Data room</span>{changed === "doc" && <span className="chg-tag">Opened</span>}</div>
-            <div className="doc-name">{s.doc.name}</div>
-            {s.doc.lines.map(([l, hl], i) => <div key={i} className={"doc-line" + (hl ? " hl" : "")}>{l}</div>)}
-            {!compact && <div className="doc-line" style={{ marginTop: 8 }}>Signed by: {r.PERSON ? <span className="redact">Name redacted</span> : s.doc.person}</div>}
+            <DocFace key={s.doc.id + (s.sheet || "")} file={s.doc} initialSheet={s.sheet} redactPerson={!!r.PERSON} />
           </div>
           <div className="wb-model">
             <div className="wb-h"><span>Model inputs: {s.label}</span></div>
@@ -990,7 +1019,7 @@ function AppearanceMenu() {
 /* Command bar: WAI-ARIA combobox. Arrows move the highlight; Home/End move the
    text cursor until the user has started arrowing; no stray tab stops. */
 const PAGES = [
-  ["overview", "Overview"], ["capture", "Capture: live session"], ["debrief", "Debrief"], ["map", "Work Map"],
+  ["overview", "Overview"], ["files", "Source files"], ["capture", "Capture: live session"], ["debrief", "Debrief"], ["map", "Work Map"],
   ["teach", `Coach ${TRAINEE.first}`], ["results", "Results"], ["export", "Agent export"], ["trust", "Trust and privacy"],
 ];
 function CommandBar({ onDone }) {
@@ -1814,7 +1843,7 @@ function TeachPage() {
                       {docs.map((d) => <button key={d.id} aria-pressed={!!openDoc && openDoc.id === d.id} onClick={() => open(d.id)}>
                         <span>{d.name}</span>{form.opened.includes(d.id) && <span className="chg-tag" style={{ color: "var(--scr-text-2)" }}>Opened</span>}</button>)}
                     </div>
-                    {openDoc ? <><div className="doc-name">{openDoc.name}</div>{openDoc.lines.map(([l, hl], i) => <div key={i} className={"doc-line" + (hl ? " hl" : "")}>{l}</div>)}</>
+                    {openDoc ? <DocFace key={openDoc.id} file={openDoc} />
                       : <p style={{ color: "var(--scr-text-2)" }}>Open a file to read it.</p>}
                   </div>
                   <div className="wb-model">
@@ -2123,6 +2152,63 @@ function TrustPage() {
   );
 }
 
+// OS colour scheme as an external store: server and first client render agree (light), then it follows the OS.
+const DARK_QUERY = "(prefers-color-scheme: dark)";
+const subscribeSystemDark = (notify) => {
+  const m = window.matchMedia?.(DARK_QUERY);
+  m?.addEventListener?.("change", notify);
+  return () => m?.removeEventListener?.("change", notify);
+};
+const getSystemDark = () => !!window.matchMedia?.(DARK_QUERY).matches;
+const getSystemDarkServer = () => false;
+
+function FilesPage() {
+  const [deal, setDeal] = useState(DEAL.code);
+  const files = deal === DEAL.code ? ATLAS_FILES : BEACON_FILES;
+  const folders = [...new Set(files.map((file) => file.folder))];
+  const [openId, setOpenId] = useState(files[0].id);
+  const current = files.find((file) => file.id === openId) ?? files[0];
+  return (
+    <>
+      <PageHead title="Source files" lede={`Working set behind ${DEAL.code} and ${TEACH_DEAL.code}. Spreadsheets open as workbooks. Contracts open as the PDF page the analyst actually reads. The room still holds 1,240 files. These are the ones the demo uses.`} />
+      <div className="row" style={{ padding: "0 12px 12px" }}>
+        <div className="seg" role="tablist" aria-label="Deal">
+          {[DEAL.code, TEACH_DEAL.code].map((name) => (
+            <button key={name} role="tab" aria-selected={deal === name} onClick={() => { setDeal(name); setOpenId((name === DEAL.code ? ATLAS_FILES : BEACON_FILES)[0].id); }}>{name}</button>
+          ))}
+        </div>
+        <span className="t-sec">{files.length} files in this working set</span>
+      </div>
+      <div className="grid g-files">
+        <Card title="Data room" extra={<span className="t-sec">{current.folder}</span>}>
+          <div className="stack">
+            {folders.map((folder) => (
+              <div key={folder}>
+                <div className="t-cap" style={{ margin: "4px 0" }}>{folder}</div>
+                <div className="file-list">
+                  {files.filter((file) => file.folder === folder).map((file) => (
+                    <button key={file.id} type="button" aria-pressed={file.id === current.id} onClick={() => setOpenId(file.id)}>
+                      <span>
+                        <span className="strong" style={{ display: "block" }}>{file.name}</span>
+                        <span className="t-sec">{file.dateLabel} · {file.used}</span>
+                      </span>
+                      <span className={"file-ext " + file.kind}>{file.kind === "xlsx" ? "XLSX" : "PDF"}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card title={current.name} extra={<span className="t-sec">{current.used}</span>}>
+          <DocFace key={current.id} file={current} />
+          <p className="t-sec" style={{ marginTop: 8 }}>Synthetic demo files. Figures match the model inputs on Capture and Coach.</p>
+        </Card>
+      </div>
+    </>
+  );
+}
+
 function NotFoundPage() {
   const { go } = useApp();
   return <PageHead title="Page not found" lede="That page doesn't exist in this demo." actions={<button className="btn capsule" onClick={() => go("overview")}>Go to the overview</button>} />;
@@ -2143,6 +2229,7 @@ function NavList({ onPick }) {
   return (
     <nav aria-label="Main" className="stack x-tight">
       <NavItem {...itemProps} id="overview" label="Overview" top />
+      <NavItem {...itemProps} id="files" label="Source files" top />
       <div className="nav-label"><span className={"nav-num" + (sel.captureDone ? " done" : "")} aria-hidden>1</span>Capture{sel.captureDone && <span className="sr">, completed</span>}</div>
       <NavItem {...itemProps} id="capture" label="Live session" />
       <div className="nav-label"><span className={"nav-num" + (sel.signed ? " done" : "")} aria-hidden>2</span>Map{sel.signed && <span className="sr">, completed</span>}</div>
@@ -2212,7 +2299,7 @@ export default function App() {
     theme: "system", quoteLang: "en", expertLang: "English", tutorLang: "English", retention: "90",
     redact: { PERSON: true, US_SSN: true, COMPENSATION: true, EMAIL_ADDRESS: true, PHONE_NUMBER: true, US_BANK_NUMBER: true },
   });
-  const [systemDark, setSystemDark] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+  const systemDark = useSyncExternalStore(subscribeSystemDark, getSystemDark, getSystemDarkServer);
   const [confirm, setConfirm] = useState(null);
   const [sheet, setSheet] = useState(false);
   const [live, setLive] = useState("");
@@ -2237,10 +2324,6 @@ export default function App() {
     return apprenticeSessionId.current;
   }, []);
 
-  useEffect(() => {
-    const m = window.matchMedia?.("(prefers-color-scheme: dark)"); if (!m) return;
-    const f = (e) => setSystemDark(e.matches); m.addEventListener?.("change", f); return () => m.removeEventListener?.("change", f);
-  }, []);
 
   const restoreState = useCallback((state) => {
     if (!state || state.version !== 1) return false;
@@ -2407,7 +2490,7 @@ export default function App() {
     voice, setVoice, fillDemo, resetAll, askReset, announce, saveStatus,
     getApprenticeSessionId,
   };
-  const Page = { overview: OverviewPage, capture: CapturePage, debrief: DebriefPage, map: WorkMapPage, teach: TeachPage,
+  const Page = { overview: OverviewPage, files: FilesPage, capture: CapturePage, debrief: DebriefPage, map: WorkMapPage, teach: TeachPage,
     results: ResultsPage, export: ExportPage, trust: TrustPage }[page] || NotFoundPage;
   const dark = settings.theme === "dark" || (settings.theme === "system" && systemDark);
 
