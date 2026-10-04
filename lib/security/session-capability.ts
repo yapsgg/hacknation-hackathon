@@ -94,11 +94,31 @@ export function verifySessionCapability(
   return left.length === right.length && timingSafeEqual(left, right)
 }
 
+function firstHeaderValue(value: string | null): string | null {
+  const first = value?.split(",")[0]?.trim()
+  return first ? first : null
+}
+
+// Browsers always send an honest Origin and Host on same-site requests, so the
+// request is same-origin when Origin names the host the client actually
+// addressed. `request.url` alone is not reliable: the framework can rebuild it
+// from its bind hostname (for example localhost while the client used
+// 127.0.0.1), which would reject every legitimate mutation.
 function hasAllowedOrigin(request: Request): boolean {
   const origin = request.headers.get("origin")
   if (!origin) return process.env.ALLOW_ORIGINLESS_API === "true"
   try {
-    return new URL(origin).origin === new URL(request.url).origin
+    const parsed = new URL(origin)
+    const requestUrl = new URL(request.url)
+    if (parsed.origin === requestUrl.origin) return true
+    const host =
+      firstHeaderValue(request.headers.get("x-forwarded-host")) ??
+      firstHeaderValue(request.headers.get("host"))
+    const protocol = `${(
+      firstHeaderValue(request.headers.get("x-forwarded-proto")) ??
+      requestUrl.protocol.replace(":", "")
+    ).toLowerCase()}:`
+    return host !== null && parsed.host === host && parsed.protocol === protocol
   } catch {
     return false
   }
