@@ -62,6 +62,9 @@ async function updateInterviewState(
 }
 
 export function LiveInterviewer(props: LiveInterviewerProps) {
+  // The SDK's onError is the only place a bad voice model, a plan limit or a
+  // dropped socket shows up, so surface it in the panel instead of staying silent.
+  const [sdkError, setSdkError] = React.useState<string | null>(null)
   const onMessage = React.useCallback(
     (message: MessagePayload) => {
       if (props.offRecord || !message.message.trim()) return
@@ -78,10 +81,20 @@ export function LiveInterviewer(props: LiveInterviewerProps) {
     },
     [props.elapsedSeconds, props.offRecord, props.sessionId]
   )
+  const onError = React.useCallback((message: string) => {
+    setSdkError(message || "The voice session reported an error.")
+  }, [])
+  const onStatusChange = React.useCallback(({ status }: { status: string }) => {
+    if (status === "connected") setSdkError(null)
+  }, [])
 
   return (
-    <ConversationProvider onMessage={onMessage}>
-      <LiveInterviewerContent {...props} />
+    <ConversationProvider
+      onMessage={onMessage}
+      onError={onError}
+      onStatusChange={onStatusChange}
+    >
+      <LiveInterviewerContent {...props} sdkError={sdkError} />
     </ConversationProvider>
   )
 }
@@ -95,7 +108,8 @@ function LiveInterviewerContent({
   screenState,
   onConnectionChange,
   onOffRecordChange,
-}: LiveInterviewerProps) {
+  sdkError,
+}: LiveInterviewerProps & { sdkError?: string | null }) {
   const controls = useConversationControls()
   const { status, message: statusMessage } = useConversationStatus()
   const { mode, isSpeaking } = useConversationMode()
@@ -167,6 +181,11 @@ function LiveInterviewerContent({
   const start = async () => {
     setStartError(null)
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error(
+          "Microphone access needs a secure origin. Open the app at https:// or http://localhost (not a LAN IP)."
+        )
+      }
       await navigator.mediaDevices.getUserMedia({ audio: true })
       const response = await sessionFetch(
         sessionId,
@@ -255,9 +274,9 @@ function LiveInterviewerContent({
           </button>
         )}
       </div>
-      {(startError || statusMessage) && (
+      {(startError || sdkError || statusMessage) && (
         <p className="t-sec" style={{ color: "var(--critical)" }}>
-          {startError ?? statusMessage}
+          {startError ?? sdkError ?? statusMessage}
         </p>
       )}
     </div>
